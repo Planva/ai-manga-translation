@@ -1,4 +1,4 @@
-// lib/auth/jwt.ts  —— Edge-safe: 可被 middleware 引用
+// lib/auth/jwt.ts —— Edge-safe，仅做 JWT 编解码
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 const AUTH_SECRET = process.env.AUTH_SECRET;
@@ -7,11 +7,15 @@ if (!AUTH_SECRET) {
 }
 const key = new TextEncoder().encode(AUTH_SECRET);
 
-export type SessionPayload = {
+export type UserClaims = {
   id: string;
   email: string;
   name?: string | null;
   role?: string | null;
+};
+
+export type SessionPayload = {
+  user: UserClaims; // 回到老结构：所有调用都能用 session.user.id
 };
 
 export async function signToken(payload: SessionPayload): Promise<string> {
@@ -24,5 +28,17 @@ export async function signToken(payload: SessionPayload): Promise<string> {
 
 export async function verifyToken(token: string): Promise<SessionPayload> {
   const { payload } = await jwtVerify(token, key);
+  // 轻度兜底：若历史 token 不是 { user: ... }，尝试组装成兼容形态
+  const p = payload as any;
+  if (!p.user && (p.id || p.email)) {
+    return {
+      user: {
+        id: String(p.id ?? ''),
+        email: String(p.email ?? ''),
+        name: p.name ?? null,
+        role: p.role ?? null,
+      },
+    };
+  }
   return payload as unknown as SessionPayload;
 }
