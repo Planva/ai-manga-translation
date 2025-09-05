@@ -5,7 +5,7 @@ import { Manrope } from 'next/font/google'
 import { getUser, getTeamForUser } from '@/lib/db/queries'
 import { SWRConfig } from 'swr'
 import Image from 'next/image'
-export const runtime = 'edge';
+
 
 export const metadata: Metadata = {
   title: 'Next.js SaaS Starter',
