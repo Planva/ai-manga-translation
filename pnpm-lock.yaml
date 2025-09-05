@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@neondatabase/serverless':
+        specifier: ^1.0.1
+        version: 1.0.1
       '@radix-ui/react-select':
         specifier: ^2.2.6
         version: 2.2.6(@types/react-dom@19.1.5(@types/react@19.1.4))(@types/react@19.1.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -40,7 +43,7 @@ importers:
         version: 2.1.1
       drizzle-orm:
         specifier: ^0.43.1
-        version: 0.43.1(@types/pg@8.15.5)(gel@2.1.0)(pg@8.16.3)(postgres@3.4.7)
+        version: 0.43.1(@neondatabase/serverless@1.0.1)(@types/pg@8.15.5)(gel@2.1.0)(pg@8.16.3)(postgres@3.4.7)
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
@@ -647,6 +650,10 @@ packages:
   '@napi-rs/canvas@0.1.77':
     resolution: {integrity: sha512-N9w2DkEKE1AXGp3q55GBOP6BEoFrqChDiFqJtKViTpQCWNOSVuMz7LkoGehbnpxtidppbsC36P0kCZNqJKs29w==}
     engines: {node: '>= 10'}
+
+  '@neondatabase/serverless@1.0.1':
+    resolution: {integrity: sha512-O6yC5TT0jbw86VZVkmnzCZJB0hfxBl0JJz6f+3KHoZabjb/X08r9eFA+vuY06z1/qaovykvdkrXYq3SPUuvogA==}
+    engines: {node: '>=19.0.0'}
 
   '@next/env@15.5.1-canary.9':
     resolution: {integrity: sha512-0+Ki8Gk2NRD8rqvYOOUj1OA5gXzz7DCd9cQ4PzJAU7ofzrqu5nm5+bchtM+xxbQKRmiQJbINvimeRE58kOoG2A==}
@@ -1558,6 +1565,9 @@ packages:
 
   '@types/node@22.15.18':
     resolution: {integrity: sha512-v1DKRfUdyW+jJhZNEI1PYy29S2YRxMV5AOO/x/SjKmW0acCIOqmbj6Haf9eHAhsPmrhlHSxEhv/1WszcLWV4cg==}
+
+  '@types/node@22.18.1':
+    resolution: {integrity: sha512-rzSDyhn4cYznVG+PCzGe1lwuMYJrcBS1fc3JqSa2PvtABwWo+dZ1ij5OVok3tqfpEBCBoaR4d7upFJk73HRJDw==}
 
   '@types/pako@2.0.4':
     resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
@@ -2748,6 +2758,11 @@ snapshots:
       '@napi-rs/canvas-win32-x64-msvc': 0.1.77
     optional: true
 
+  '@neondatabase/serverless@1.0.1':
+    dependencies:
+      '@types/node': 22.18.1
+      '@types/pg': 8.15.5
+
   '@next/env@15.5.1-canary.9': {}
 
   '@next/swc-darwin-arm64@15.5.1-canary.9':
@@ -3714,6 +3729,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/node@22.18.1':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/pako@2.0.4': {}
 
   '@types/pg@8.15.5':
@@ -3864,8 +3883,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.43.1(@types/pg@8.15.5)(gel@2.1.0)(pg@8.16.3)(postgres@3.4.7):
+  drizzle-orm@0.43.1(@neondatabase/serverless@1.0.1)(@types/pg@8.15.5)(gel@2.1.0)(pg@8.16.3)(postgres@3.4.7):
     optionalDependencies:
+      '@neondatabase/serverless': 1.0.1
       '@types/pg': 8.15.5
       gel: 2.1.0
       pg: 8.16.3
