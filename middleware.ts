@@ -1,48 +1,29 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { signToken, verifyToken } from '@/lib/auth/session';
+// middleware.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth/jwt';
 
-const protectedRoutes = '/dashboard';
+const PROTECTED_PREFIXES = ['/dashboard']; // 按需修改
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get('session');
-  const isProtectedRoute = pathname.startsWith(protectedRoutes);
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  if (isProtectedRoute && !sessionCookie) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
-  }
-
-  let res = NextResponse.next();
-
-  if (sessionCookie && request.method === 'GET') {
+  // 命中需要鉴权的路径
+  if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    const token = req.cookies.get('session')?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
     try {
-      const parsed = await verifyToken(sessionCookie.value);
-      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-      res.cookies.set({
-        name: 'session',
-        value: await signToken({
-          ...parsed,
-          expires: expiresInOneDay.toISOString()
-        }),
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        expires: expiresInOneDay
-      });
-    } catch (error) {
-      console.error('Error updating session:', error);
-      res.cookies.delete('session');
-      if (isProtectedRoute) {
-        return NextResponse.redirect(new URL('/sign-in', request.url));
-      }
+      await verifyToken(token);
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL('/login', req.url));
     }
   }
 
-  return res;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/dashboard/:path*'], // 与上面的前缀保持一致
 };

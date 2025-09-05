@@ -8,39 +8,19 @@ export async function generateStaticParams() {
   return posts.map((p) => ({ slug: p.slug }));
 }
 
-// 关键：兼容 canary/PPR 把 params 标成 Promise 的情况
-type ParamsObj = { slug: string };
-type MaybePromise<T> = T | Promise<T>;
+type Params = { slug: string };
+type Props = { params: Promise<Params> };
 
-export default async function PostPage({
-  params,
-}: {
-  params: MaybePromise<ParamsObj>;
-}) {
-  // 如果 params 是 Promise，就 await；否则直接用
-  const actualParams =
-    typeof (params as any)?.then === 'function'
-      ? await (params as Promise<ParamsObj>)
-      : (params as ParamsObj);
-
-  const { meta, html } = await getPost(actualParams.slug);
+export default async function PostPage({ params }: Props) {
+  const { slug } = await params;
+  const { meta, html } = await getPost(slug);
 
   return (
     <main className="relative mx-auto w-full max-w-3xl px-6 pt-12 pb-24 text-white">
       <header className="mb-6">
-        <h1
-          className="hero-gradient-text text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent"
-          style={{
-            backgroundImage:
-              'linear-gradient(240deg, #ffffff 0%, var(--c-text) 40%, #818CF8 100%)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-          }}
-        >
-          {meta.title}
-        </h1>
-        <div className="mt-2 text-xs text-white/60 flex gap-3">
-          {meta.date && <span>{new Date(meta.date).toLocaleDateString()}</span>}
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{meta.title}</h1>
+        <div className="mt-2 text-sm text-white/70 flex gap-3">
+          {meta.date && <time>{meta.date}</time>}
           {meta.author && <span>{meta.author}</span>}
         </div>
         {meta.description && (
@@ -48,7 +28,6 @@ export default async function PostPage({
         )}
       </header>
 
-      {/* 正文卡片 */}
       <article className="prose prose-invert max-w-none rounded-2xl bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur">
         <div dangerouslySetInnerHTML={{ __html: html }} />
       </article>
