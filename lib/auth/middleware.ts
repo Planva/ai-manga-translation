@@ -10,12 +10,14 @@ export type ActionState = {
   [key: string]: any; // This allows for additional properties
 };
 
-// ✅ 仅用于服务端动作的“会话用户”最小安全类型
+// ✅ 会话内传递的最小用户形态（允许带上 passwordHash，但不是强制）
 export type SessionUser = {
   id: number;
   email: string;
   name: string | null;
   stripe_customer_id?: string | null;
+  passwordHash?: string;        // <── 新增：供需要校验旧密码的 action 使用
+  role?: string | null;         // 可选：有些地方可能会读 role
 };
 
 type ValidatedActionFunction<S extends z.ZodType<any, any>, T> = (
@@ -27,17 +29,15 @@ export function validatedAction<S extends z.ZodType<any, any>, T>(
   schema: S,
   action: ValidatedActionFunction<S, T>
 ) {
-  return async (prevState: ActionState, formData: FormData) => {
+  return async (_prevState: ActionState, formData: FormData) => {
     const result = schema.safeParse(Object.fromEntries(formData));
     if (!result.success) {
       return { error: result.error.errors[0].message };
     }
-
     return action(result.data, formData);
   };
 }
 
-// ⚠️ 这里把原先的 `User`（DB 完整类型）改为 `SessionUser`
 type ValidatedActionWithUserFunction<S extends z.ZodType<any, any>, T> = (
   data: z.infer<S>,
   formData: FormData,
@@ -48,18 +48,20 @@ export function validatedActionWithUser<S extends z.ZodType<any, any>, T>(
   schema: S,
   action: ValidatedActionWithUserFunction<S, T>
 ) {
-  return async (prevState: ActionState, formData: FormData) => {
-    const user = await getUser();
-    if (!user) {
+  return async (_prevState: ActionState, formData: FormData) => {
+    const raw = await getUser();
+    if (!raw) {
       throw new Error('User is not authenticated');
     }
 
-    // 将会话里的用户信息规范化为 SessionUser，避免要求 DB 的完整字段
-    const safeUser: SessionUser = {
-      id: Number((user as any).id),
-      email: String((user as any).email),
-      name: (user as any).name ?? null,
-      stripe_customer_id: (user as any).stripe_customer_id ?? null,
+    // 仅做“会话 -> 动作”必要字段的归一化；passwordHash 若存在就透传
+    const user: SessionUser = {
+      id: Number((raw as any).id),
+      email: String((raw as any).email),
+      name: (raw as any).name ?? null,
+      stripe_customer_id: (raw as any).stripe_customer_id ?? null,
+      passwordHash: (raw as any).passwordHash ?? undefined,
+      role: (raw as any).role ?? null,
     };
 
     const result = schema.safeParse(Object.fromEntries(formData));
@@ -67,7 +69,7 @@ export function validatedActionWithUser<S extends z.ZodType<any, any>, T>(
       return { error: result.error.errors[0].message };
     }
 
-    return action(result.data, formData, safeUser);
+    return action(result.data, formData, user);
   };
 }
 
