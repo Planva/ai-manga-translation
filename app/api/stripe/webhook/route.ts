@@ -11,42 +11,42 @@ const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 if (!SECRET) throw new Error('Missing STRIPE_SECRET_KEY');
 if (!WEBHOOK_SECRET) throw new Error('Missing STRIPE_WEBHOOK_SECRET');
 
-// Edge 兼容：使用 fetch http client + SubtleCrypto
+// Edge 兼容：仅保留 fetch http client（不要再写 apiVersion）
 const stripe = new Stripe(SECRET, {
-  // 不写 apiVersion，避免和类型锁冲突
   httpClient: Stripe.createFetchHttpClient(),
-  cryptoProvider: Stripe.createSubtleCryptoProvider(),
 });
 
 export async function POST(req: Request) {
   try {
-    const sig = req.headers.get('stripe-signature');
-    if (!sig) {
+    const signature = req.headers.get('stripe-signature');
+    if (!signature) {
       return NextResponse.json({ error: 'Missing stripe-signature' }, { status: 400 });
     }
 
-    // Webhook 必须用原始字符串
+    // Webhook 需要原始文本
     const body = await req.text();
 
-    // 使用 async + subtle crypto 验证签名（Edge）
+    // ✅ 正确用法：把 subtle crypto 作为 constructEventAsync 的第 5 个参数
+    const cryptoProvider = Stripe.createSubtleCryptoProvider();
     const event = await stripe.webhooks.constructEventAsync(
       body,
-      sig,
-      WEBHOOK_SECRET
+      signature,
+      WEBHOOK_SECRET,
+      undefined,        // 可选 tolerance，保持默认
+      cryptoProvider
     );
 
-    // === 依据事件类型分支（按需扩展你的业务逻辑） ===
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        // TODO: 标记用户付费成功、开通订阅/配额等
+        // TODO: 标记支付成功 / 开通订阅或配额
         break;
       }
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
-        // TODO: 同步订阅状态到你的数据库
+        // TODO: 同步订阅状态到数据库
         break;
       }
       default:
@@ -56,15 +56,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err: any) {
-    // Stripe 校验失败或者解析失败
-    return NextResponse.json(
-      { error: err?.message ?? 'Webhook error' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: err?.message ?? 'Webhook error' }, { status: 400 });
   }
 }
 
-// 可选：GET 用于健康检查
 export async function GET() {
   return NextResponse.json({ ok: true });
 }
