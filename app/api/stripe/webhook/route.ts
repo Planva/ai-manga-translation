@@ -5,14 +5,11 @@ export const dynamic = 'force-dynamic';
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
-const SECRET = process.env.STRIPE_SECRET_KEY;
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+if (!STRIPE_SECRET_KEY) throw new Error('Missing STRIPE_SECRET_KEY');
 
-if (!SECRET) throw new Error('Missing STRIPE_SECRET_KEY');
-if (!WEBHOOK_SECRET) throw new Error('Missing STRIPE_WEBHOOK_SECRET');
-
-// Edge 兼容：仅保留 fetch http client（不要再写 apiVersion）
-const stripe = new Stripe(SECRET, {
+// 仅保留 Edge 兼容的 fetch http client，不写 apiVersion
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
@@ -23,23 +20,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing stripe-signature' }, { status: 400 });
     }
 
-    // Webhook 需要原始文本
+    // webhook 要原始文本
     const body = await req.text();
 
-    // ✅ 正确用法：把 subtle crypto 作为 constructEventAsync 的第 5 个参数
+    // ❗在函数内读取并校验，这样类型就是 string
+    const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!WEBHOOK_SECRET) throw new Error('Missing STRIPE_WEBHOOK_SECRET');
+
+    // Edge 校验：把 subtle crypto 作为第 5 个参数
     const cryptoProvider = Stripe.createSubtleCryptoProvider();
     const event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       WEBHOOK_SECRET,
-      undefined,        // 可选 tolerance，保持默认
+      undefined,
       cryptoProvider
     );
 
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        // TODO: 标记支付成功 / 开通订阅或配额
+        // TODO: 标记支付成功 / 开通订阅或额度
         break;
       }
       case 'customer.subscription.created':
@@ -50,7 +51,6 @@ export async function POST(req: Request) {
         break;
       }
       default:
-        // 其他事件按需处理
         break;
     }
 
