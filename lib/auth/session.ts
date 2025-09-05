@@ -8,8 +8,10 @@ const SALT_ROUNDS = 10;
 export interface SessionData {
   user: { id: string };
   expires: string;
-  stripeRole?: "free" | "paid";    // ← 新增
+  stripeRole?: 'free' | 'paid';
 }
+
+
 export async function hashPassword(password: string) {
   return hash(password, SALT_ROUNDS);
 }
@@ -21,10 +23,7 @@ export async function comparePasswords(
   return compare(plainTextPassword, hashedPassword);
 }
 
-type SessionData = {
-  user: { id: number };
-  expires: string;
-};
+
 
 export async function signToken(payload: SessionData) {
   return await new SignJWT(payload)
