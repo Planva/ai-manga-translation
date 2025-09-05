@@ -1,18 +1,29 @@
 // lib/limits/quota.ts
 import type { NextRequest } from 'next/server';
-import { supabase } from '@/lib/db/supabase';
 
 export const DAILY_FREE_LIMIT = 10;
 const COOKIE_NAME = 'fqk';
 
+// —— 按需获取 Supabase Admin 客户端（带缓存，见 lib/db/supabase.ts）——
+async function getDb() {
+  const { getSupabaseAdmin } = await import('@/lib/db/supabase');
+  return getSupabaseAdmin();
+}
+
 // === helpers ===
 function today() {
   const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    d.getUTCDate()
+  ).padStart(2, '0')}`;
 }
 
 function safeHeader(req: NextRequest, name: string) {
-  try { return req.headers?.get?.(name) || ''; } catch { return ''; }
+  try {
+    return req.headers?.get?.(name) || '';
+  } catch {
+    return '';
+  }
 }
 function safeCookie(req: NextRequest, name: string) {
   try {
@@ -20,7 +31,9 @@ function safeCookie(req: NextRequest, name: string) {
     if (!c || typeof c.get !== 'function') return '';
     const got = c.get(name);
     return (typeof got === 'string' ? got : got?.value) || '';
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 function ipFromReq(req: NextRequest) {
   const v =
@@ -47,6 +60,7 @@ export async function getAnonKey(req: NextRequest) {
 
 // === read-only ===
 export async function getDailyRemaining(req: NextRequest, limit = DAILY_FREE_LIMIT) {
+  const supabase = await getDb();
   const { keyType, key } = await getAnonKey(req);
   const d = today();
 
@@ -66,6 +80,7 @@ export async function getDailyRemaining(req: NextRequest, limit = DAILY_FREE_LIM
 
 // === consume on success ===
 export async function consumeUnits(req: NextRequest, amount: number) {
+  const supabase = await getDb();
   const { keyType, key } = await getAnonKey(req);
   const d = today();
 
@@ -83,10 +98,7 @@ export async function consumeUnits(req: NextRequest, amount: number) {
   // upsert 覆盖
   await supabase
     .from('free_quota')
-    .upsert(
-      { date: d, key_type: keyType, key, uses: newUses },
-      { onConflict: 'date,key_type,key' }
-    );
+    .upsert({ date: d, key_type: keyType, key, uses: newUses }, { onConflict: 'date,key_type,key' });
 
   return getDailyRemaining(req);
 }

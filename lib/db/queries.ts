@@ -1,11 +1,18 @@
 // lib/db/queries.ts
-import { supabase } from '@/lib/db/supabase';
 import { getSession } from '@/lib/auth/session';
+
+/** 工具：在函数内部按需获取 Supabase Admin 客户端（带缓存） */
+async function getAdmin() {
+  const { getSupabaseAdmin } = await import('@/lib/db/supabase');
+  return getSupabaseAdmin();
+}
 
 /** 获取当前登录用户 */
 export async function getUser() {
   const session = await getSession().catch(() => null);
   if (!session?.user?.id) return null;
+
+  const supabase = await getAdmin();
 
   const { data, error } = await supabase
     .from('users')
@@ -32,11 +39,14 @@ export async function getUser() {
 
 /** 通过 Stripe customerId 找团队 */
 export async function getTeamByStripeCustomerId(customerId: string) {
+  const supabase = await getAdmin();
+
   const { data, error } = await supabase
     .from('teams')
     .select('*')
     .eq('stripe_customer_id', customerId)
     .maybeSingle();
+
   if (error) return null;
   return data;
 }
@@ -51,6 +61,8 @@ export async function updateTeamSubscription(
     subscriptionStatus?: string | null;
   }
 ) {
+  const supabase = await getAdmin();
+
   const payload: any = {};
   if ('stripeSubscriptionId' in fields)
     payload.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
@@ -70,6 +82,8 @@ export async function getTeamForUser() {
   const user = await getUser();
   if (!user?.id) return null;
 
+  const supabase = await getAdmin();
+
   const { data: tm } = await supabase
     .from('team_members')
     .select('team_id')
@@ -83,13 +97,14 @@ export async function getTeamForUser() {
     .select('*')
     .eq('id', tm.team_id)
     .maybeSingle();
+
   return team ?? null;
 }
 
 /**
- * ✅ 补充：getUserWithTeam
- * - 与原项目调用对齐：从 session 获取 user，再查其 team
- * - 返回形如 { user, team }，两者任意一个不存在时为 null
+ * ✅ getUserWithTeam
+ * 与原项目调用对齐：从 session 获取 user，再查其 team
+ * 返回 { user, team }，两者任意一个不存在时为 null
  */
 export async function getUserWithTeam(): Promise<{
   user: { id: number; email?: string | null; name?: string | null } | null;
@@ -97,6 +112,8 @@ export async function getUserWithTeam(): Promise<{
 }> {
   const user = await getUser();
   if (!user?.id) return { user: null, team: null };
+
+  const supabase = await getAdmin();
 
   const { data: tm } = await supabase
     .from('team_members')
