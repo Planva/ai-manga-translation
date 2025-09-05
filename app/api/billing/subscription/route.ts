@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';   // 该接口依赖实时数据
 
 // Stripe v18.* 类型强约束了 apiVersion，这里用 basil 版本
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
+  apiVersion: '2025-08-27.basil',
 });
 
 // 这些状态才视为“有权限”的订阅

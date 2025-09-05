@@ -16,7 +16,7 @@ if (!STRIPE_SECRET_KEY) {
 // 注意：stripe@18.x 当前类型把 apiVersion 锁为 "2025-04-30.basil"
 // 如不想锁版本，也可直接去掉 apiVersion 这行，使用 SDK 默认值
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: '2025-04-30.basil',
+  apiVersion: '2025-08-27.basil',
 });
 
 // 小工具：把任意输入安全地收敛为字符串或 undefined
