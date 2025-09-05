@@ -11,20 +11,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil',
 });
 
+type PriceId = (typeof STRIPE_PRICES)[keyof typeof STRIPE_PRICES];
+
 type Body = {
-  // 约束 priceId 必须是你在 STRIPE_PRICES 里定义过的值
-  priceId?: (typeof STRIPE_PRICES)[keyof typeof STRIPE_PRICES];
+  priceId?: PriceId;
   successUrl?: string;
   cancelUrl?: string;
 };
 
-async function getUserEmail() {
+async function getUserEmail(): Promise<string | undefined> {
   try {
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user?.email) return null;
-    return data.user.email;
+    if (error) return undefined;
+    return data.user?.email ?? undefined; // 不返回 null，返回 undefined
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -43,19 +44,25 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_APP_URL ??
       'http://localhost:3000';
 
-    const session = await stripe.checkout.sessions.create({
+    const email = await getUserEmail();
+
+    const params: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: body?.successUrl ?? `${origin}/billing?session_id={CHECKOUT_SESSION_ID}`,
+      line_items: [{ price: priceId as string, quantity: 1 }],
+      success_url:
+        body?.successUrl ?? `${origin}/billing?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body?.cancelUrl ?? `${origin}/billing`,
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
-      customer_email: await getUserEmail(),
+      // 只有在有邮箱时才加上该字段，避免 string|null
+      ...(email ? { customer_email: email } : {}),
       metadata: {
-        price_id: priceId,
+        price_id: priceId as string,
         plan: FALLBACK_PRICE_META[priceId]?.name ?? 'unknown',
       },
-    });
+    };
+
+    const session = await stripe.checkout.sessions.create(params);
 
     return NextResponse.json({ id: session.id, url: session.url }, { status: 200 });
   } catch (err: any) {
