@@ -1,6 +1,7 @@
 // app/(dashboard)/layout.tsx
 export const runtime = 'edge';
-
+import SiteHeader from '@/components/site-header';
+import SiteFooter from "@/components/SiteFooter";
 import { SWRConfig } from 'swr';
 import { getUser, getTeamForUser } from '@/lib/db/queries';
 
@@ -14,7 +15,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
       }}
     >
+      <SiteHeader />
       {children}
+      <SiteFooter />
     </SWRConfig>
   );
 }
