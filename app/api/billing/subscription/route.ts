@@ -4,16 +4,17 @@ export const runtime = 'edge';
 import Stripe from 'stripe';
 import { getUser } from '@/lib/db/queries';
 
-// 不固定 apiVersion，避免类型字面量不匹配；保持 SDK 默认版本
-// 如在运行时遇到 Workers 相关 HTTP 客户端问题，可改用：
-// const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { httpClient: Stripe.createFetchHttpClient() });
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// 在 Cloudflare Pages/Edge 使用 fetch 客户端，避免 Node http 依赖
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  httpClient: Stripe.createFetchHttpClient(),
+});
 
 const ENTITLING_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
 
 async function resolveCustomerId(user: { id: number | string; email?: string | null; name?: string | null }) {
   const found = new Map<string, Stripe.Customer>();
 
+  // 通过 metadata 查询
   try {
     const byMeta = await stripe.customers.search({
       query: `metadata['app_user_id']:'${String(user.id).replace(/'/g, "\\'")}'`,
@@ -22,6 +23,7 @@ async function resolveCustomerId(user: { id: number | string; email?: string | n
     for (const c of byMeta.data) found.set(c.id, c);
   } catch {}
 
+  // 通过 email 再查一遍
   if (user.email) {
     try {
       const byEmail = await stripe.customers.search({
@@ -50,7 +52,7 @@ export async function GET() {
 
     const customerId = await resolveCustomerId({ id: user.id, email: user.email, name: user.name });
 
-    // 只展开到 price，避免展开层级过深 & Product/DeletedProduct 联合类型问题
+    // 只展开到 price，避免 Product/DeletedProduct 联合类型
     const subs = await stripe.subscriptions.list({
       customer: customerId,
       status: 'all',
@@ -59,18 +61,21 @@ export async function GET() {
     });
 
     const usable = subs.data.filter((s) => ENTITLING_STATUSES.has(s.status as any));
-    let current: {
-      id: string;
-      status: string;
-      interval: Stripe.Price.Recurring['interval'] | null;
-      display_name: string | null;
-      unit_amount: number | null;
-      currency: string | null;
-      quantity: number;
-      current_period_end: number;
-      cancel_at_period_end: boolean;
-      ends_at: number | null;
-    } | null = null;
+
+    let current:
+      | {
+          id: string;
+          status: string;
+          interval: Stripe.Price.Recurring['interval'] | null;
+          display_name: string | null;
+          unit_amount: number | null;
+          currency: string | null;
+          quantity: number;
+          current_period_end: number; // 返回值沿用旧键名，读取用驼峰
+          cancel_at_period_end: boolean;
+          ends_at: number | null;
+        }
+      | null = null;
 
     if (usable.length > 0) {
       const order = ['active', 'trialing', 'past_due', 'unpaid'] as const;
@@ -80,7 +85,6 @@ export async function GET() {
       const item = s.items.data[0];
       const price = item?.price as Stripe.Price | undefined;
 
-      // 友好展示名优先使用 price.nickname（不用再碰 product）
       const displayName = price?.nickname ?? null;
 
       current = {
@@ -91,9 +95,10 @@ export async function GET() {
         unit_amount: price?.unit_amount ?? null,
         currency: price?.currency ?? null,
         quantity: item?.quantity ?? 1,
-        current_period_end: s.current_period_end,
-        cancel_at_period_end: s.cancel_at_period_end ?? false,
-        ends_at: s.cancel_at_period_end ? s.current_period_end : null,
+        // ⬇⬇ 关键：使用 basil 类型的驼峰字段
+        current_period_end: s.currentPeriodEnd,
+        cancel_at_period_end: s.cancelAtPeriodEnd ?? false,
+        ends_at: s.cancelAtPeriodEnd ? s.currentPeriodEnd : null,
       };
     }
 
@@ -107,8 +112,9 @@ export async function GET() {
         unit_amount: p?.unit_amount ?? null,
         currency: p?.currency ?? null,
         quantity: it?.quantity ?? 1,
-        cancel_at_period_end: s.cancel_at_period_end ?? false,
-        current_period_end: s.current_period_end,
+        // ⬇⬇ 同样使用驼峰字段读取，再输出为旧键名
+        cancel_at_period_end: s.cancelAtPeriodEnd ?? false,
+        current_period_end: s.currentPeriodEnd,
       };
     });
 
