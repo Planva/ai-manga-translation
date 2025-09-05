@@ -1,70 +1,53 @@
 // app/api/billing/portal/route.ts
-export const runtime = 'edge';
-
+import { NextResponse, type NextRequest } from 'next/server';
 import Stripe from 'stripe';
-import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// ⚠ 不要设置 apiVersion，避免 TS 字面量不匹配导致的编译错误
 
-// 与 subscription 接口一致的解析，确保两边拿到同一个 Customer
-async function resolveCustomerId(user: { id: number | string; email?: string | null; name?: string | null }) {
-  const candidates = new Map<string, Stripe.Customer>();
+async function resolveCustomerId(user: {
+  id: number | string;
+  email?: string | null;
+  // 兼容不同字段命名
+  stripe_customer_id?: string | null;
+  stripeCustomerId?: string | null;
+}) {
+  // 1) 优先使用用户记录里已有的 customer id（如有）
+  const fromUser =
+    (user as any).stripe_customer_id ||
+    (user as any).stripeCustomerId ||
+    null;
+  if (fromUser) return fromUser as string;
 
-  try {
-    const byMeta = await stripe.customers.search({
-      query: `metadata['app_user_id']:'${String(user.id).replace(/'/g, "\\'")}'`,
-      limit: 100,
-    });
-    for (const c of byMeta.data) candidates.set(c.id, c);
-  } catch {}
-
+  // 2) 退化：用邮箱在 Stripe 搜索（若邮箱存在）
   if (user.email) {
-    try {
-      const byEmail = await stripe.customers.search({
-        query: `email:'${user.email.replace(/'/g, "\\'")}'`,
-        limit: 100,
-      });
-      for (const c of byEmail.data) candidates.set(c.id, c);
-    } catch {}
+    const list = await stripe.customers.list({ email: user.email, limit: 1 });
+    if (list.data.length > 0) return list.data[0]!.id;
   }
 
-  // 若没有候选，则创建一个
-  if (candidates.size === 0) {
-    const created = await stripe.customers.create({
-      email: user.email ?? undefined,
-      name: user.name ?? undefined,
-      metadata: { app_user_id: String(user.id) },
-    });
-    return created.id;
-  }
-
-  // 有就取第一个（无所谓顺序，Portal 里也能看到和管理所有订阅/支付方式）
-  return [...candidates.keys()][0];
+  return null;
 }
 
 export async function GET(req: NextRequest) {
-  try {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return new Response('STRIPE_SECRET_KEY not set', { status: 500 });
-    }
-
-    const user = await getUser();
-    if (!user) return new Response('Unauthorized', { status: 401 });
-
-    const customerId = await resolveCustomerId({ id: user.id, email: user.email, name: user.name });
-
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: new URL('/dashboard?portal=1', req.url).toString(),
-    });
-
-    return NextResponse.redirect(session.url, { status: 303 });
-  } catch (e: any) {
-    console.error('[billing/portal] error:', e);
-    const msg = process.env.NODE_ENV === 'development'
-      ? `Unable to open billing portal: ${e?.message ?? e}`
-      : 'Unable to open billing portal';
-    return new Response(msg, { status: 500 });
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const customerId = await resolveCustomerId(user as any);
+  if (!customerId) {
+    return NextResponse.json(
+      { error: 'Stripe customer not found for current user.' },
+      { status: 404 }
+    );
+  }
+
+  const portal = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${req.nextUrl.origin}/dashboard?portal=1`,
+  });
+
+  // 302 重定向到 Billing Portal
+  return NextResponse.redirect(portal.url);
 }
