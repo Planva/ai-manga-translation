@@ -2,10 +2,12 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 import Stripe from 'stripe';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/db/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' });
 
 async function getUser() {
   try {
