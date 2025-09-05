@@ -239,15 +239,27 @@ const updatePasswordSchema = z.object({
   confirmPassword: z.string().min(8).max(100)
 });
 
+// ===== updatePassword =====
 export const updatePassword = validatedActionWithUser(
   updatePasswordSchema,
   async (data, _, user) => {
     const { currentPassword, newPassword, confirmPassword } = data;
 
+    // 关键：先收窄 passwordHash
+    if (!user.passwordHash) {
+      return {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+        error: 'This account does not have a password set. Please set a password first.'
+      };
+    }
+
     const isPasswordValid = await comparePasswords(
       currentPassword,
-      user.passwordHash
+      user.passwordHash // 现在已被收窄为 string
     );
+
     if (!isPasswordValid) {
       return {
         currentPassword,
@@ -277,10 +289,7 @@ export const updatePassword = validatedActionWithUser(
     const team = await getTeamForUser();
 
     await Promise.all([
-      db
-        .update(users)
-        .set({ passwordHash: newPasswordHash })
-        .where(eq(users.id, user.id)),
+      db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, user.id)),
       logActivity(team?.id, user.id, ActivityType.UPDATE_PASSWORD)
     ]);
 
@@ -289,14 +298,21 @@ export const updatePassword = validatedActionWithUser(
 );
 
 
+
 const deleteAccountSchema = z.object({
   password: z.string().min(8).max(100)
 });
 
+// ===== deleteAccount =====
 export const deleteAccount = validatedActionWithUser(
   deleteAccountSchema,
   async (data, _, user) => {
     const { password } = data;
+
+    // 同样先收窄
+    if (!user.passwordHash) {
+      return { password, error: 'This account does not have a password set.' };
+    }
 
     const isPasswordValid = await comparePasswords(password, user.passwordHash);
     if (!isPasswordValid) {
@@ -307,7 +323,6 @@ export const deleteAccount = validatedActionWithUser(
 
     await logActivity(team?.id, user.id, ActivityType.DELETE_ACCOUNT);
 
-    // Soft delete
     await db
       .update(users)
       .set({
@@ -319,18 +334,14 @@ export const deleteAccount = validatedActionWithUser(
     if (team?.id) {
       await db
         .delete(teamMembers)
-        .where(
-          and(
-            eq(teamMembers.userId, user.id),
-            eq(teamMembers.teamId, team.id)
-          )
-        );
+        .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, team.id)));
     }
 
     (await cookies()).delete('session');
     redirect('/sign-in');
   }
 );
+
 
 
 const updateAccountSchema = z.object({
