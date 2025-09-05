@@ -1,4 +1,3 @@
-// lib/auth/session.ts
 import 'server-only';
 
 import { compare, hash } from 'bcryptjs';
@@ -6,19 +5,25 @@ import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { cookies } from 'next/headers';
 import type { NewUser } from '@/lib/db/schema';
 
-const AUTH_SECRET = process.env.AUTH_SECRET ?? 'dev-secret'; // 生产环境务必设置
-const key = new TextEncoder().encode(AUTH_SECRET);
-
 const SESSION_COOKIE = 'session';
+const AUTH_SECRET = process.env.AUTH_SECRET;
+if (!AUTH_SECRET) {
+  throw new Error('AUTH_SECRET is missing');
+}
+const key = new TextEncoder().encode(AUTH_SECRET);
 const SALT_ROUNDS = 10;
 
 export type SessionData = {
-  user: { id: number };
-  expires: string;                 // ISO datetime string
-  stripeRole: 'free' | 'paid';
+  user: {
+    id: number | string;
+    email?: string | null;
+    name?: string | null;
+  };
+  expires: string;
+  stripeRole?: 'free' | 'paid';
 };
 
-// ---------- Password helpers ----------
+// -------- Password helpers --------
 export async function hashPassword(password: string) {
   return hash(password, SALT_ROUNDS);
 }
@@ -27,12 +32,12 @@ export async function comparePasswords(plain: string, hashed: string) {
   return compare(plain, hashed);
 }
 
-// ---------- JWT helpers ----------
-export async function signToken(payload: SessionData) {
-  return new SignJWT(payload as unknown as JWTPayload)
+// -------- JWT helpers --------
+export async function signToken(payload: SessionData): Promise<string> {
+  return await new SignJWT(payload as unknown as JWTPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('24h') // jose 支持相对时间字符串
+    .setExpirationTime('1 day') // 等价于 24h
     .sign(key);
 }
 
@@ -41,36 +46,45 @@ export async function verifyToken(token: string): Promise<SessionData> {
   return payload as unknown as SessionData;
 }
 
-// ---------- Session (cookie) helpers ----------
+// -------- Cookie session helpers --------
 export async function getSession(): Promise<SessionData | null> {
   const store = await cookies();
   const raw = store.get(SESSION_COOKIE)?.value;
   if (!raw) return null;
+
   try {
     return await verifyToken(raw);
   } catch {
-    return null; // 过期/非法时返回 null
+    // token 过期或非法，清理由我们来做，避免反复报错
+    await clearSession();
+    return null;
   }
 }
 
 export async function setSession(
-  user: NewUser,
+  user: Pick<NewUser, 'id' | 'email' | 'name'> & { id: number | string },
   stripeRole: 'free' | 'paid' = 'free'
 ): Promise<void> {
-  const store = await cookies();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+  const exp = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
   const session: SessionData = {
-    user: { id: Number(user.id) },
-    expires: expiresAt.toISOString(),
+    user: {
+      id: user.id,
+      email: user.email ?? null,
+      name: user.name ?? null,
+    },
+    expires: exp.toISOString(),
     stripeRole,
   };
+
   const token = await signToken(session);
+  const store = await cookies();
   store.set(SESSION_COOKIE, token, {
-    path: '/',
+    expires: exp,
     httpOnly: true,
+    secure: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    expires: expiresAt,
+    path: '/',
   });
 }
 
