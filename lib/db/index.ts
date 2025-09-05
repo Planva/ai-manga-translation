@@ -1,11 +1,13 @@
 // lib/db/index.ts
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
 let _db: NodePgDatabase | null = null;
-
+const sql = neon(process.env.DATABASE_URL!); 
+export const db = drizzle(sql);
 /** 单例：确保所有服务端代码都走这一份连接 */
 export function requireDb(): NodePgDatabase {
   if (_db) return _db;
