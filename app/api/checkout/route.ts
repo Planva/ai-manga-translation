@@ -2,25 +2,36 @@
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
-
-const SECRET = process.env.STRIPE_SECRET_KEY;
-if (!SECRET) {
-  throw new Error('Missing STRIPE_SECRET_KEY');
-}
-
-// 用 fetch http client 以兼容 Edge；不指定 apiVersion，避免类型卡死
-const stripe = new Stripe(SECRET, {
-  httpClient: Stripe.createFetchHttpClient(),
-});
 
 function asString(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v : undefined;
 }
 
+// —— 惰性初始化，避免在模块顶层读取环境变量 —— //
+let _stripe: any;
+async function getStripe() {
+  if (_stripe) return _stripe;
+
+  // 动态导入，避免打包器在构建期处理 stripe 的 node 依赖
+  const { default: Stripe } = await import('stripe');
+
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error('Missing STRIPE_SECRET_KEY');
+  }
+
+  // 在 Edge/Workers 使用 fetch http client（可选）
+  const httpClient = (Stripe as any).createFetchHttpClient?.();
+  _stripe = new Stripe(key, httpClient ? { httpClient } : undefined);
+
+  return _stripe;
+}
+
 export async function POST(req: Request) {
   try {
+    const stripe = await getStripe();
+
     let body: any = {};
     try {
       body = await req.json();
@@ -56,18 +67,20 @@ export async function POST(req: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: successUrl,
       cancel_url: cancelUrl,
-      // 可选：在 Session 侧加点标记供你后台核对
       metadata: {
         price_id: priceId,
         plan: mode === 'subscription' ? 'sub_auto' : 'pack_auto',
       },
     });
 
-    return NextResponse.json({ id: session.id, url: session.url }, { status: 200 });
+    return NextResponse.json(
+      { id: session.id, url: session.url },
+      { status: 200, headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message ?? 'Failed to create checkout session' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }
