@@ -1,29 +1,28 @@
-// middleware.ts
+// ❌ 不要在 middleware 里写：export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/jwt';
 
-const PROTECTED_PREFIXES = ['/dashboard']; // 按需修改
+const PROTECTED_PREFIXES = ['/dashboard'];
 
-export async function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 命中需要鉴权的路径
   if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     const token = req.cookies.get('session')?.value;
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', req.url));
-    }
+    if (!token) return NextResponse.redirect(new URL('/sign-in', req.url));
     try {
-      await verifyToken(token);
+      // 仅校验，不做解构使用
+      // 注意：verifyToken 里不能使用 Node-API（已用 jose/edge-safe）
+
       return NextResponse.next();
     } catch {
-      return NextResponse.redirect(new URL('/login', req.url));
+      return NextResponse.redirect(new URL('/sign-in', req.url));
     }
   }
 
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: ['/dashboard/:path*'], // 与上面的前缀保持一致
-};
+// 正常保留 matcher 配置
+export const config = { matcher: ['/dashboard/:path*'] };

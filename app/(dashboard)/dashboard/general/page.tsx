@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
-
+export const runtime = 'edge';
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function GeneralPage() {

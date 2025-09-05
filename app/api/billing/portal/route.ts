@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import Stripe from 'stripe';
 import { getUser } from '@/lib/db/queries';
-
+export const runtime = 'edge';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 // ⚠ 不要设置 apiVersion，避免 TS 字面量不匹配导致的编译错误
 

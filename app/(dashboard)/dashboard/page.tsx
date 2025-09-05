@@ -3,7 +3,7 @@
 import React from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-
+export const runtime = 'edge';
 /** 放到最前，避免“Cannot access 'fetcher' before initialization” */
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 const formatDate = (unixSec?: number | null) =>

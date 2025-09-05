@@ -1,5 +1,5 @@
 'use client';
-
+export const runtime = 'edge';
 export default function SecurityPage() {
   return (
     <div className="space-y-6">

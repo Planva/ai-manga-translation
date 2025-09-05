@@ -1,8 +1,8 @@
 // app/api/checkout/start/route.ts
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { STRIPE_PRICES, FALLBACK_PRICE_META } from '@/lib/pay/prices';

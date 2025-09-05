@@ -33,7 +33,7 @@ importers:
         specifier: ^10.4.21
         version: 10.4.21(postcss@8.5.3)
       bcrypt-ts:
-        specifier: ^5.0.0
+        specifier: ^5.0.3
         version: 5.0.3
       class-variance-authority:
         specifier: ^0.7.1
@@ -60,20 +60,14 @@ importers:
         specifier: ^16.2.1
         version: 16.2.1
       next:
-        specifier: ^15.5.1-canary.9
+        specifier: 15.5.1-canary.9
         version: 15.5.1-canary.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       pdfjs-dist:
         specifier: ^5.4.54
         version: 5.4.54
-      pg:
-        specifier: ^8.16.3
-        version: 8.16.3
       postcss:
         specifier: ^8.5.3
         version: 8.5.3
-      postgres:
-        specifier: ^3.4.7
-        version: 3.4.7
       radix-ui:
         specifier: ^1.4.2
         version: 1.4.2(@types/react-dom@19.1.5(@types/react@19.1.4))(@types/react@19.1.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -108,9 +102,6 @@ importers:
         specifier: ^3.24.4
         version: 3.24.4
     devDependencies:
-      '@types/pg':
-        specifier: ^8.15.5
-        version: 8.15.5
       dotenv:
         specifier: ^17.2.1
         version: 17.2.1
@@ -4196,13 +4187,15 @@ snapshots:
   pg-cloudflare@1.2.7:
     optional: true
 
-  pg-connection-string@2.9.1: {}
+  pg-connection-string@2.9.1:
+    optional: true
 
   pg-int8@1.0.1: {}
 
   pg-pool@3.10.1(pg@8.16.3):
     dependencies:
       pg: 8.16.3
+    optional: true
 
   pg-protocol@1.10.3: {}
 
@@ -4223,10 +4216,12 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.2.7
+    optional: true
 
   pgpass@1.0.5:
     dependencies:
       split2: 4.2.0
+    optional: true
 
   picocolors@1.1.1: {}
 
@@ -4254,7 +4249,8 @@ snapshots:
     dependencies:
       xtend: 4.0.2
 
-  postgres@3.4.7: {}
+  postgres@3.4.7:
+    optional: true
 
   qs@6.14.0:
     dependencies:
@@ -4457,7 +4453,8 @@ snapshots:
 
   source-map@0.6.1: {}
 
-  split2@4.2.0: {}
+  split2@4.2.0:
+    optional: true
 
   sprintf-js@1.0.3: {}
 

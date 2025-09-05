@@ -1,8 +1,8 @@
 // app/api/billing/subscription/route.ts
 import Stripe from 'stripe';
 import { getUser } from '@/lib/db/queries';
+export const runtime = 'edge';
 
-export const runtime = 'nodejs';          // 避免 Edge 运行时限制
 export const dynamic = 'force-dynamic';   // 该接口依赖实时数据
 
 // Stripe v18.* 类型强约束了 apiVersion，这里用 basil 版本

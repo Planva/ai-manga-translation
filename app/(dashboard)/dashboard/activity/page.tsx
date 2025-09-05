@@ -1,5 +1,5 @@
 'use client';
-
+export const runtime = 'edge';
 export default function ActivityPage() {
   const items = [
     { title: 'Signed in', time: 'Just now', detail: 'Web · Chrome' },

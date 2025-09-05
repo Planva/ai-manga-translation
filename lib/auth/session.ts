@@ -1,12 +1,12 @@
-// lib/auth/session.ts —— 垫片层：保持历史用法不改
+// lib/auth/session.ts —— 垫片层：兼容历史写法
 export {
-  createSession as setSession, // 兼容旧名
+  createSession as setSession,
   createSession,
   getSession,
   clearSession,
   hashPassword,
   comparePasswords,
-  getUserId,
+  getUserId
 } from './session.server';
 
 export type { SessionPayload, UserClaims } from './jwt';
