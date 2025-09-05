@@ -1,0 +1,670 @@
+@import "tailwindcss";
+/*
+  ---break---
+*/
+@custom-variant dark (&:is(.dark *));
+
+@import "tw-animate-css";
+
+@variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+@layer utilities {
+  body {
+    font-family: "Manrope", Arial, Helvetica, sans-serif;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/*
+  ---break---
+*/
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(240 10% 3.9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(240 10% 3.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(240 10% 3.9%);
+  --primary: hsl(240 5.9% 10%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(240 4.8% 95.9%);
+  --secondary-foreground: hsl(240 5.9% 10%);
+  --muted: hsl(240 4.8% 95.9%);
+  --muted-foreground: hsl(240 3.8% 46.1%);
+  --accent: hsl(240 4.8% 95.9%);
+  --accent-foreground: hsl(240 5.9% 10%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(240 5.9% 90%);
+  --input: hsl(240 5.9% 90%);
+  --ring: hsl(240 10% 3.9%);
+  --chart-1: hsl(12 76% 61%);
+  --chart-2: hsl(173 58% 39%);
+  --chart-3: hsl(197 37% 24%);
+  --chart-4: hsl(43 74% 66%);
+  --chart-5: hsl(27 87% 67%);
+  --radius: 0.6rem;
+}
+
+/*
+  ---break---
+*/
+
+.dark {
+  --background: hsl(240 10% 3.9%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(240 10% 3.9%);
+  --card-foreground: hsl(0 0% 98%);
+  --popover: hsl(240 10% 3.9%);
+  --popover-foreground: hsl(0 0% 98%);
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(240 5.9% 10%);
+  --secondary: hsl(240 3.7% 15.9%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(240 3.7% 15.9%);
+  --muted-foreground: hsl(240 5% 64.9%);
+  --accent: hsl(240 3.7% 15.9%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(240 3.7% 15.9%);
+  --input: hsl(240 3.7% 15.9%);
+  --ring: hsl(240 4.9% 83.9%);
+  --chart-1: hsl(220 70% 50%);
+  --chart-2: hsl(160 60% 45%);
+  --chart-3: hsl(30 80% 55%);
+  --chart-4: hsl(280 65% 60%);
+  --chart-5: hsl(340 75% 55%);
+}
+
+/*
+  ---break---
+*/
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+  ---break---
+*/
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+/* === Borderless: shared tokens (no override of Tailwind HSL vars) === */
+@layer base {
+  :root {
+    --c-bg: #0B0B0F;
+    --c-primary: #818CF8;  /* 主色 */
+    --c-secondary: #3B82F6;/* 次色 */
+    --c-accent: #F97316;   /* 强调 */
+    --c-text: #E5E7EB;     /* 文本 */
+  }
+  html, body { background: transparent !important; }
+  body { color: var(--c-text); }
+}
+
+/* === Header (full-width bar + centered inner) === */
+@layer components {
+  .site-header { @apply sticky top-0 z-50 w-full; }
+  .site-header__bar{
+    @apply w-full h-14 flex items-center;
+    background-color: rgba(12,11,17,.70);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 28px rgba(0,0,0,.35);
+  }
+  .site-header__inner{
+    @apply mx-auto w-full max-w-7xl flex items-center justify-between gap-6 px-4 sm:px-6;
+  }
+  .site-brand{
+    display:grid; grid-auto-flow:column; align-items:center; gap:.5rem; height:56px;
+    user-select:none;
+  }
+  .site-brand__icon{ display:block; width:36px; height:36px; }
+  .site-brand__text{ line-height:1; color:var(--c-text); white-space:nowrap; }
+
+  .site-nav-link{
+    @apply text-sm transition-colors;
+    color: color-mix(in oklab, var(--c-text) 85%, transparent);
+  }
+  .site-nav-link:hover{ color: var(--c-primary); }
+
+  .btn-login{
+    @apply rounded-full px-4 py-1.5 text-sm font-medium;
+    color: var(--c-text);
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.10);
+  }
+  .btn-login:hover{ border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.15); }
+
+  .btn-signup{
+    @apply rounded-full px-4 py-1.5 text-sm font-semibold;
+    background: var(--c-primary);
+    color: var(--c-text);
+  }
+  .btn-signup:hover{ background: var(--c-secondary); }
+}
+
+/* === Hero title gradient (240deg) === */
+@layer components {
+  .hero-title{
+    @apply text-4xl sm:text-6xl font-extrabold tracking-tight text-transparent;
+    background-image: linear-gradient(240deg, #ffffff 0%, var(--c-text) 40%, var(--c-primary) 100%);
+    -webkit-background-clip:text; background-clip:text;
+  }
+}
+
+/* === Compare: 更粗中线与把手（你的滑动翻译用这些类即可） === */
+.compare-divider{ width:8px; background: rgba(255,255,255,.9); box-shadow: 0 0 0 2px rgba(0,0,0,.25); border-radius:999px; }
+.compare-handle{ width:18px; height:18px; border-radius:999px; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.4); border:2px solid rgba(0,0,0,.45); }
+
+/* === Auth pages（可选复用） === */
+@layer components {
+  .auth-wrap{ min-height:100dvh; display:grid; place-items:center; padding:2.5rem 1rem; }
+  .auth-card{
+    background: rgba(2,6,23,.65); backdrop-filter: blur(8px);
+    border:1px solid rgba(255,255,255,.12); border-radius:20px;
+    box-shadow:0 10px 28px rgba(0,0,0,.35); color:var(--c-text);
+  }
+}
+
+/* === Pricing 色调（不改你的功能代码） === */
+.pricing h2{ color: var(--c-text); }
+.pricing p{ color: color-mix(in oklab, var(--c-text) 85%, transparent); }
+.pricing .price { color: var(--c-accent); }         /* 价格用强调色 */
+.pricing button[type="submit"]{
+  background: var(--c-primary) !important;          /* 统一按钮底色 */
+  color: var(--c-text) !important;                  /* 文字 E5E7EB */
+  border-color: transparent !important;
+}
+.pricing button[type="submit"]:hover{ background: var(--c-secondary) !important; }
+/* ===== Auth pages: unify look & spacing (ONLY under .auth-wrap/.auth-card) ===== */
+@layer utilities {
+  /* 页内居中容器：给顶部留出导航高度，避免被 sticky header 贴住 */
+  .auth-wrap {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 5.5rem 1rem 2.5rem; /* 顶部≈56px导航 + 额外留白、底部 40px */
+  }
+
+  /* 玻璃卡片外观（你之前已定义过一版，这里补充通用文字色） */
+  .auth-card {
+    background: rgba(2, 6, 23, 0.65);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    color: var(--c-text);
+  }
+
+  /* —— 1) 解决“卡片被拉长”：中和内部模板常见的 100dvh 包裹与过大 padding —— */
+  .auth-wrap .min-h-\[100dvh\] { min-height: auto !important; }
+  .auth-wrap .py-20, .auth-wrap .py-16,
+  .auth-wrap .py-12, .auth-wrap .py-10 {
+    padding-top: .75rem !important;
+    padding-bottom: .75rem !important;
+  }
+  .auth-wrap .bg-gray-50 { background-color: transparent !important; }
+  .auth-wrap [class*="space-y-"] > * + * { margin-top: .5rem !important; }
+
+  /* —— 2) 表单可读性：文本/占位符/边框/按钮 —— */
+  .auth-card h1, .auth-card h2, .auth-card h3,
+  .auth-card .text-gray-900, .auth-card .text-gray-800, .auth-card .text-gray-700 {
+    color: var(--c-text) !important; /* #E5E7EB */
+  }
+  .auth-card p, .auth-card label, .auth-card small {
+    color: color-mix(in oklab, var(--c-text) 85%, transparent) !important;
+  }
+  .auth-card a { color: var(--c-primary) !important; }
+
+  .auth-card input, .auth-card select, .auth-card textarea {
+    color: var(--c-text) !important;
+    background: rgba(255,255,255,.08) !important;
+    border: 1px solid rgba(255,255,255,.20) !important;
+  }
+  .auth-card input::placeholder,
+  .auth-card textarea::placeholder {
+    color: color-mix(in oklab, var(--c-text) 65%, transparent) !important;
+    opacity: 1;
+  }
+
+  /* 主提交按钮统一成站点按钮风格 */
+  .auth-card button[type="submit"] {
+    background: var(--c-primary) !important;   /* #818CF8 */
+    color: var(--c-text) !important;           /* #E5E7EB */
+    border-color: transparent !important;
+  }
+  .auth-card button[type="submit"]:hover {
+    background: var(--c-secondary) !important; /* #3B82F6 */
+  }
+}
+/* ==== Auth readability tweaks (sign-in / sign-up only) ==== */
+
+/* 1) 标题、说明、label 更亮 */
+.auth-card h1, .auth-card h2, .auth-card h3 {
+  color: #fff !important;
+}
+.auth-card p, .auth-card label, .auth-card small,
+.auth-card .text-gray-700, .auth-card .text-gray-600,
+.auth-card .text-gray-500, .auth-card .text-gray-400 {
+  color: color-mix(in oklab, var(--c-text) 85%, transparent) !important;
+}
+
+/* 2) 输入框 & 占位符对比度 */
+.auth-card input, .auth-card select, .auth-card textarea {
+  color: var(--c-text) !important;
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(255,255,255,.20) !important;
+}
+.auth-card input::placeholder,
+.auth-card textarea::placeholder {
+  color: color-mix(in oklab, var(--c-text) 70%, transparent) !important;
+  opacity: 1;
+}
+
+/* 3) “Already have an account?” 这类分隔行更清楚 */
+.auth-card hr, .auth-card .border-t {
+  border-color: rgba(255,255,255,.18) !important;
+}
+
+/* 4) 提交按钮仍用主色；底部那个次级按钮统一为玻璃态 */
+.auth-card button[type="submit"] {
+  background: var(--c-primary) !important;
+  color: var(--c-text) !important;
+  border-color: transparent !important;
+}
+.auth-card button[type="submit"]:hover {
+  background: var(--c-secondary) !important;
+}
+
+/* 适配大多数模板：非 submit 的按钮（通常是“已有账号/去登录”） */
+.auth-card button:not([type="submit"]) {
+  background: rgba(255,255,255,.12) !important;
+  color: var(--c-text) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+}
+.auth-card button:not([type="submit"]):hover {
+  background: rgba(255,255,255,.18) !important;
+}
+/* === Auth: bottom link button on dark card === */
+/* Auth 卡片底部的“次要按钮”（/sign-in 与 /sign-up 都覆盖） */
+.auth-card a[href$="/sign-in"],
+.auth-card a[href$="sign-in"],
+.auth-card a[href$="/sign-up"],
+.auth-card a[href$="sign-up"] {
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.18);
+  color: var(--c-text) !important;   /* #E5E7EB */
+  opacity: 1 !important;             /* 干掉模板里可能设置的低不透明度 */
+  border-radius: 9999px;
+  padding: 0.6rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card a[href$="/sign-in"]:hover,
+.auth-card a[href$="sign-in"]:hover,
+.auth-card a[href$="/sign-up"]:hover,
+.auth-card a[href$="sign-up"]:hover {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.28);
+}
+@layer components {
+  /* 玻璃态卡片容器（不要在 @apply 里套自定义类名） */
+  .translate-panel {
+    /* 等价于 rounded-2xl p-4 md:p-6 bg-white/10 backdrop-blur border border-white/15 shadow-xl */
+    border-radius: 1rem;          /* rounded-2xl */
+    padding: 1rem;                /* p-4 */
+  }
+  @media (min-width: 768px) {
+    .translate-panel { padding: 1.5rem; }  /* md:p-6 */
+  }
+  .translate-panel {
+    background: rgba(255,255,255,0.10);    /* bg-white/10 */
+    backdrop-filter: blur(8px);            /* backdrop-blur */
+    border: 1px solid rgba(255,255,255,0.15); /* border-white/15 */
+    box-shadow: 0 10px 28px rgba(0,0,0,.35);  /* shadow-xl (近似) */
+  }
+
+  /* 上传框（任意值用原生写，边框/圆角照旧） */
+  .upload-dropzone {
+    border-width: 2px;                     /* border-2 */
+    border-style: dashed;                  /* border-dashed */
+    border-color: rgba(129,140,248,.7);    /* border-indigo-400/70 */
+    border-radius: 1rem;                   /* rounded-2xl */
+    padding: 2.5rem;                       /* p-10 */
+    text-align: center;
+    color: var(--c-text);                  /* 原生代替 text-[var(--c-text)] */
+    background: rgba(2,6,23,.45);          /* 深色玻璃态 */
+    backdrop-filter: blur(8px);
+    transition: background-color .2s ease;
+    margin-top: 3rem;                      /* mt-12 */
+  }
+  .upload-dropzone:hover {
+    background: rgba(2,6,23,.62);
+  }
+  .upload-hint {
+    margin-top: .75rem;                    /* mt-3 */
+    font-size: .875rem;                    /* text-sm */
+    opacity: .75;
+  }
+
+  /* 滑动条（这两条原生写完全没问题） */
+  .compare-divider {
+    width: 6px;
+    background: rgba(167,139,250,.95);
+    box-shadow: 0 0 16px rgba(129,140,248,.95);
+    border-radius: 999px;
+  }
+  .compare-handle {
+    width: 22px; height: 22px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.4);
+    border: 2px solid rgba(0,0,0,.45);
+  }
+}
+@layer components {
+  /* 整个 Dashboard 外壳：居中、与吸顶 Header 拉开距离 */
+  .dash-shell {
+    /* 相当于 max-w-6xl mx-auto px-4 md:px-6 pt-20 pb-16 flex gap-6 */
+    max-width: 72rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 5rem;   /* 顶部留白，避免被 site-header 压住 */
+    padding-bottom: 4rem;
+    display: flex;
+    gap: 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .dash-shell { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+
+  /* 左侧栏（深色玻璃 + 轻边框） */
+  .dash-aside {
+    width: 16rem;              /* w-64 */
+    display: none;
+    flex-direction: column;
+    gap: .5rem;
+    border-radius: 1rem;       /* rounded-2xl */
+    padding: 1rem;             /* p-4 */
+    background: rgba(255,255,255,.06);  /* bg-white/5 */
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.10);
+  }
+  @media (min-width: 768px) {
+    .dash-aside { display: flex; }       /* md:flex */
+  }
+  .dash-link {
+    padding: .5rem .75rem;               /* px-3 py-2 */
+    border-radius: .5rem;                /* rounded-lg */
+    font-size: .875rem;                  /* text-sm */
+    color: color-mix(in oklab, var(--c-text) 85%, transparent);
+    transition: all .15s ease;
+  }
+  .dash-link:hover,
+  .dash-link[aria-current="page"] {
+    color: var(--c-text);
+    background: rgba(255,255,255,.08);
+  }
+
+  /* 右侧内容卡片（深色玻璃态） */
+  .dash-card {
+    border-radius: 1rem;                     /* rounded-2xl */
+    padding: 1.25rem;                        /* p-5~p-6 */
+    background: rgba(255,255,255,.08);       /* bg-white/10 */
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.12); /* border-white/15 近似 */
+    box-shadow: 0 10px 28px rgba(0,0,0,.35); /* shadow-xl 近似 */
+  }
+
+  /* 顶部标题行 */
+  .dash-title {
+    font-weight: 600;
+    font-size: 1.5rem;                       /* text-2xl */
+    line-height: 1.25;
+    color: var(--c-text);
+  }
+}
+
+@layer base {
+  html { scrollbar-gutter: stable both-edges; }
+}
+@layer components {
+  /* 玻璃态下拉框（select + option 都可读） */
+  .glass-select {
+    @apply w-full rounded-lg px-3 py-2 border transition focus:outline-none;
+    @apply bg-[rgba(2,6,23,.60)] border-white/15 text-[color:var(--c-text)];
+  }
+  .glass-select:focus {
+    @apply ring-2 ring-indigo-400/50 border-white/30;
+  }
+  /* Chrome/Edge/Firefox 都支持给 option 设色，保持深色背景与高对比字色 */
+  .glass-select option {
+    color: var(--c-text);
+    background: rgba(12,11,17,.98);
+  }
+
+  /* 结果卡片的标题行 */
+  .card-header {
+    @apply flex items-center justify-between gap-3;
+  }
+  .btn-ghost {
+    @apply rounded-full px-3 py-1.5 border border-white/15 bg-white/10 hover:bg-white/15;
+    color: var(--c-text);
+  }
+}
+/* Fix: native <select> dropdown text unreadable (dark theme with white popup) */
+select option,
+select optgroup {
+  color: #111 !important;
+  background-color: #fff !important;
+}
+/* 触发器在深色页面里仍保持浅色文字 */
+.dark select {
+  color: hsl(var(--foreground));
+}
+/* Safari 某些场景需要这个属性让颜色生效 */
+select option { -webkit-text-fill-color: #111; }
+/* 让原生 <select> 的下拉面板在白底时文字可见 */
+select option,
+select optgroup { color: #111 !important; background-color: #fff !important; }
+select option { -webkit-text-fill-color: #111; }
+
+/* 小徽章（状态） */
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  font-size: 12px; line-height: 1; border-radius: 9999px;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(6px);
+}
+.badge.success { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.35);}
+.badge.warn    { background: rgba(234,179,8,.18); border-color: rgba(234,179,8,.38);}
+.badge.info    { background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.36);}
+.badge.danger  { background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.38);}
