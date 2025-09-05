@@ -1,5 +1,6 @@
+// lib/auth/middleware.ts
 import { z } from 'zod';
-import { TeamDataWithMembers, User } from '@/lib/db/schema';
+import { TeamDataWithMembers } from '@/lib/db/schema';
 import { getTeamForUser, getUser } from '@/lib/db/queries';
 import { redirect } from 'next/navigation';
 
@@ -7,6 +8,14 @@ export type ActionState = {
   error?: string;
   success?: string;
   [key: string]: any; // This allows for additional properties
+};
+
+// ✅ 仅用于服务端动作的“会话用户”最小安全类型
+export type SessionUser = {
+  id: number;
+  email: string;
+  name: string | null;
+  stripe_customer_id?: string | null;
 };
 
 type ValidatedActionFunction<S extends z.ZodType<any, any>, T> = (
@@ -28,10 +37,11 @@ export function validatedAction<S extends z.ZodType<any, any>, T>(
   };
 }
 
+// ⚠️ 这里把原先的 `User`（DB 完整类型）改为 `SessionUser`
 type ValidatedActionWithUserFunction<S extends z.ZodType<any, any>, T> = (
   data: z.infer<S>,
   formData: FormData,
-  user: User
+  user: SessionUser
 ) => Promise<T>;
 
 export function validatedActionWithUser<S extends z.ZodType<any, any>, T>(
@@ -44,12 +54,20 @@ export function validatedActionWithUser<S extends z.ZodType<any, any>, T>(
       throw new Error('User is not authenticated');
     }
 
+    // 将会话里的用户信息规范化为 SessionUser，避免要求 DB 的完整字段
+    const safeUser: SessionUser = {
+      id: Number((user as any).id),
+      email: String((user as any).email),
+      name: (user as any).name ?? null,
+      stripe_customer_id: (user as any).stripe_customer_id ?? null,
+    };
+
     const result = schema.safeParse(Object.fromEntries(formData));
     if (!result.success) {
       return { error: result.error.errors[0].message };
     }
 
-    return action(result.data, formData, user);
+    return action(result.data, formData, safeUser);
   };
 }
 
