@@ -1,7 +1,11 @@
 // app/(dashboard)/blog/[slug]/page.tsx
 import { getAllPosts, getPost } from '@/lib/blog';
 
-export const dynamic = 'force-static';
+
+// app/blog/[slug]/page.tsx
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // 可选，显式禁用 ISR
 
 export async function generateStaticParams() {
   const posts = await getAllPosts();
