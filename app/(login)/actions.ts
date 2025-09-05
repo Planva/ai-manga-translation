@@ -20,7 +20,8 @@ import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
-import { getUser, getUserWithTeam } from '@/lib/db/queries';
+//import { getUser, getUserWithTeam } from '@/lib/db/queries';
+import { getUser, getTeamForUser } from '@/lib/db/queries';
 import {
   validatedAction,
   validatedActionWithUser
@@ -223,10 +224,14 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
 export async function signOut() {
   const user = (await getUser()) as User;
-  const userWithTeam = await getUserWithTeam(user.id);
-  await logActivity(userWithTeam?.teamId, user.id, ActivityType.SIGN_OUT);
+
+  // 以前：getUserWithTeam(user.id) —— 现在直接查当前用户所在团队
+  const team = await getTeamForUser(); // 无参，返回当前用户的团队或 null
+
+  await logActivity(team?.id, user.id, ActivityType.SIGN_OUT);
   (await cookies()).delete('session');
 }
+
 
 const updatePasswordSchema = z.object({
   currentPassword: z.string().min(8).max(100),
