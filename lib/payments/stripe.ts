@@ -15,11 +15,13 @@ const BASE_URL =
   process.env.APP_URL ||
   '';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  // 使用稳定且在 Edge/Pages 环境广泛验证过的版本
-  apiVersion: '2024-06-20'
-});
-
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY is missing');
+  
+  export const stripe = new Stripe(key, {
+    // 在 Cloudflare/Edge 环境使用 fetch 客户端（Node/Pages 都兼容）
+    httpClient: Stripe.createFetchHttpClient(),
+  });
 export async function createCheckoutSession({
   team,
   priceId
