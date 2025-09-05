@@ -8,22 +8,15 @@ export async function generateStaticParams() {
   return posts.map((p) => ({ slug: p.slug }));
 }
 
-// 关键：兼容 canary/PPR 把 params 标成 Promise 的情况
-type ParamsObj = { slug: string };
-type MaybePromise<T> = T | Promise<T>;
-
+// 关键：这里把 params 声明为 Promise，并统一 await
 export default async function PostPage({
   params,
 }: {
-  params: MaybePromise<ParamsObj>;
+  params: Promise<{ slug: string }>;
 }) {
-  // 如果 params 是 Promise，就 await；否则直接用
-  const actualParams =
-    typeof (params as any)?.then === 'function'
-      ? await (params as Promise<ParamsObj>)
-      : (params as ParamsObj);
+  const { slug } = await params; // 如果传进来是普通对象，await 也会直接得到对象
 
-  const { meta, html } = await getPost(actualParams.slug);
+  const { meta, html } = await getPost(slug);
 
   return (
     <main className="relative mx-auto w-full max-w-3xl px-6 pt-12 pb-24 text-white">

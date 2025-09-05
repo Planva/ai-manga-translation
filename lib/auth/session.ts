@@ -2,7 +2,7 @@ import { compare, hash } from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NewUser } from '@/lib/db/schema';
-
+import 'server-only';
 const key = new TextEncoder().encode(process.env.AUTH_SECRET);
 const SALT_ROUNDS = 10;
 export interface SessionData {
