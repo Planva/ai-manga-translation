@@ -1,73 +1,65 @@
-export const runtime = 'edge';
+// app/api/checkout/start/route.ts
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import Stripe from 'stripe';
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { STRIPE_PRICES, FALLBACK_PRICE_META } from '@/lib/pay/prices';
 import { supabase } from '@/lib/db/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-04-30.basil',
+});
 
-async function getUser() {
+type Body = {
+  // 约束 priceId 必须是你在 STRIPE_PRICES 里定义过的值
+  priceId?: (typeof STRIPE_PRICES)[keyof typeof STRIPE_PRICES];
+  successUrl?: string;
+  cancelUrl?: string;
+};
+
+async function getUserEmail() {
   try {
-    const { getSession } = await import('@/lib/auth/session');
-    return await getSession();
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user?.email) return null;
+    return data.user.email;
   } catch {
     return null;
   }
 }
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const mode = body?.mode as 'payment' | 'subscription';
-  if (!['payment', 'subscription'].includes(mode)) {
-    return NextResponse.json({ error: 'invalid mode' }, { status: 400 });
-  }
-
-  const session = await getUser();
-  const user = session?.user;
-  if (!user?.id || !user?.email) {
-    return NextResponse.json({ error: 'UNAUTH' }, { status: 401 });
-  }
-
-  const priceId =
-    mode === 'payment' ? process.env.STRIPE_PRICE_ONETIME : process.env.STRIPE_PRICE_SUB;
-  if (!priceId) return NextResponse.json({ error: 'price not configured' }, { status: 500 });
-
-  // 读取/创建 customer —— Supabase 版
-  let customerId: string | null = null;
   try {
-    const { data: row } = await supabase
-      .from('users')
-      .select('stripe_customer_id')
-      .eq('id', Number(user.id))
-      .maybeSingle();
-    customerId = row?.stripe_customer_id ?? null;
-  } catch {}
+    const body = (await req.json()) as Body | undefined;
 
-  if (!customerId) {
-    const c = await stripe.customers.create({ email: user.email, metadata: { userId: user.id } });
-    customerId = c.id;
-    try {
-      await supabase
-        .from('users')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', Number(user.id));
-    } catch {}
+    const priceId = body?.priceId;
+    if (!priceId) {
+      return NextResponse.json({ error: 'Missing priceId' }, { status: 400 });
+    }
+
+    const origin =
+      (body?.successUrl ? new URL(body.successUrl).origin : null) ??
+      req.headers.get('origin') ??
+      process.env.NEXT_PUBLIC_APP_URL ??
+      'http://localhost:3000';
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: body?.successUrl ?? `${origin}/billing?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: body?.cancelUrl ?? `${origin}/billing`,
+      allow_promotion_codes: true,
+      billing_address_collection: 'auto',
+      customer_email: await getUserEmail(),
+      metadata: {
+        price_id: priceId,
+        plan: FALLBACK_PRICE_META[priceId]?.name ?? 'unknown',
+      },
+    });
+
+    return NextResponse.json({ id: session.id, url: session.url }, { status: 200 });
+  } catch (err: any) {
+    console.error('checkout/start error', err);
+    return NextResponse.json({ error: err?.message ?? 'Unknown error' }, { status: 500 });
   }
-
-  const origin = process.env.APP_URL || new URL(req.url).origin;
-
-  const checkout = await stripe.checkout.sessions.create({
-    mode,
-    customer: customerId || undefined,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${origin}/dashboard?success=1`,
-    cancel_url: `${origin}/pricing?canceled=1`,
-    client_reference_id: String(user.id), 
-    metadata: { userId: String(user.id) }, 
-  });
-
-  return NextResponse.json({ url: checkout.url });
 }
