@@ -6,6 +6,7 @@ export const config = {
   matcher: [
     // 只对 dashboard 下的页面做鉴权
     '/dashboard/:path*',
+    '/api/:path*'
     // 如果你还有其它需要保护的区段，继续加
     // '/api/private/:path*',
   ],
