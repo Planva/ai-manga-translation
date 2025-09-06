@@ -1,7 +1,7 @@
 'use client';
-export const dynamic = 'force-static';
-import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
+export const runtime = 'edge';
 /* ===== 顶部演示：保持你的样式 ===== */
 function TranslateReveal({
   before = '/demo/panel-original.webp',
