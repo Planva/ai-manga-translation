@@ -1,5 +1,5 @@
 // app/(dashboard)/layout.tsx
-export const runtime = 'edge';
+export const dynamic = 'force-static';
 import SiteHeader from '@/components/site-header';
 import SiteFooter from "@/components/SiteFooter";
 import { SWRConfig } from 'swr';
