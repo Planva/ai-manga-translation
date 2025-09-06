@@ -1,134 +1,130 @@
-// lib/db/queries.ts
-import { getSession } from '@/lib/auth/session';
+import { desc, and, eq, isNull } from 'drizzle-orm';
+import { db } from './drizzle';
+import { activityLogs, teamMembers, teams, users } from './schema';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth/session';
 
-/** 工具：在函数内部按需获取 Supabase Admin 客户端（带缓存） */
-async function getAdmin() {
-  const { getSupabaseAdmin } = await import('@/lib/db/supabase');
-  return getSupabaseAdmin();
-}
-
-/** 获取当前登录用户 */
 export async function getUser() {
-  const session = await getSession().catch(() => null);
-  if (!session?.user?.id) return null;
-
-  const supabase = await getAdmin();
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, email, name, stripe_customer_id')
-    .eq('id', Number(session.user.id))
-    .maybeSingle();
-
-  if (error) {
-    // 失败时返回最小信息，避免上层崩溃
-    return {
-      id: Number(session.user.id),
-      email: session.user.email ?? null,
-      name: session.user.name ?? null,
-    };
+  const sessionCookie = (await cookies()).get('session');
+  if (!sessionCookie || !sessionCookie.value) {
+    return null;
   }
-  return (
-    data ?? {
-      id: Number(session.user.id),
-      email: session.user.email ?? null,
-      name: session.user.name ?? null,
-    }
-  );
+
+  const sessionData = await verifyToken(sessionCookie.value);
+  if (
+    !sessionData ||
+    !sessionData.user ||
+    typeof sessionData.user.id !== 'number'
+  ) {
+    return null;
+  }
+
+  if (new Date(sessionData.expires) < new Date()) {
+    return null;
+  }
+
+  const user = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, sessionData.user.id), isNull(users.deletedAt)))
+    .limit(1);
+
+  if (user.length === 0) {
+    return null;
+  }
+
+  return user[0];
 }
 
-/** 通过 Stripe customerId 找团队 */
 export async function getTeamByStripeCustomerId(customerId: string) {
-  const supabase = await getAdmin();
+  const result = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.stripeCustomerId, customerId))
+    .limit(1);
 
-  const { data, error } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('stripe_customer_id', customerId)
-    .maybeSingle();
-
-  if (error) return null;
-  return data;
+  return result.length > 0 ? result[0] : null;
 }
 
-/** 更新团队订阅信息 */
 export async function updateTeamSubscription(
   teamId: number,
-  fields: {
-    stripeSubscriptionId?: string | null;
-    stripeProductId?: string | null;
-    planName?: string | null;
-    subscriptionStatus?: string | null;
+  subscriptionData: {
+    stripeSubscriptionId: string | null;
+    stripeProductId: string | null;
+    planName: string | null;
+    subscriptionStatus: string;
   }
 ) {
-  const supabase = await getAdmin();
-
-  const payload: any = {};
-  if ('stripeSubscriptionId' in fields)
-    payload.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
-  if ('stripeProductId' in fields)
-    payload.stripe_product_id = fields.stripeProductId ?? null;
-  if ('planName' in fields) payload.plan_name = fields.planName ?? null;
-  if ('subscriptionStatus' in fields)
-    payload.subscription_status = fields.subscriptionStatus ?? null;
-  payload.updated_at = new Date().toISOString();
-
-  const { error } = await supabase.from('teams').update(payload).eq('id', teamId);
-  if (error) throw error;
+  await db
+    .update(teams)
+    .set({
+      ...subscriptionData,
+      updatedAt: new Date()
+    })
+    .where(eq(teams.id, teamId));
 }
 
-/** 获取当前用户所在团队（单团队场景） */
+export async function getUserWithTeam(userId: number) {
+  const result = await db
+    .select({
+      user: users,
+      teamId: teamMembers.teamId
+    })
+    .from(users)
+    .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return result[0];
+}
+
+export async function getActivityLogs() {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  return await db
+    .select({
+      id: activityLogs.id,
+      action: activityLogs.action,
+      timestamp: activityLogs.timestamp,
+      ipAddress: activityLogs.ipAddress,
+      userName: users.name
+    })
+    .from(activityLogs)
+    .leftJoin(users, eq(activityLogs.userId, users.id))
+    .where(eq(activityLogs.userId, user.id))
+    .orderBy(desc(activityLogs.timestamp))
+    .limit(10);
+}
+
 export async function getTeamForUser() {
   const user = await getUser();
-  if (!user?.id) return null;
+  if (!user) {
+    return null;
+  }
 
-  const supabase = await getAdmin();
+  const result = await db.query.teamMembers.findFirst({
+    where: eq(teamMembers.userId, user.id),
+    with: {
+      team: {
+        with: {
+          teamMembers: {
+            with: {
+              user: {
+                columns: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
 
-  const { data: tm } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', Number(user.id))
-    .limit(1)
-    .maybeSingle();
-  if (!tm?.team_id) return null;
-
-  const { data: team } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('id', tm.team_id)
-    .maybeSingle();
-
-  return team ?? null;
-}
-
-/**
- * ✅ getUserWithTeam
- * 与原项目调用对齐：从 session 获取 user，再查其 team
- * 返回 { user, team }，两者任意一个不存在时为 null
- */
-export async function getUserWithTeam(): Promise<{
-  user: { id: number; email?: string | null; name?: string | null } | null;
-  team: any | null;
-}> {
-  const user = await getUser();
-  if (!user?.id) return { user: null, team: null };
-
-  const supabase = await getAdmin();
-
-  const { data: tm } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', Number(user.id))
-    .limit(1)
-    .maybeSingle();
-
-  if (!tm?.team_id) return { user, team: null };
-
-  const { data: team } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('id', tm.team_id)
-    .maybeSingle();
-
-  return { user, team: team ?? null };
+  return result?.team || null;
 }

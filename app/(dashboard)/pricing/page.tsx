@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { STRIPE_PRICES } from '@/lib/pay/prices';
-export const runtime = 'edge';
+
 /** 发起结账（保持你原来的逻辑不变） */
 async function startCheckout(priceId: string, setBusy: (v: boolean) => void) {
   try {

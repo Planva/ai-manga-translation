@@ -19,29 +19,25 @@ function todayStr() {
   return `${y}-${m}-${day}`;
 }
 
-async function getClientKey(): Promise<string> {
-  const c = await cookies(); // ← 必须 await
+function getClientKey(): string {
+  const c = cookies();
   let device = c.get('fqk')?.value;
-
   if (!device) {
-    device = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+    device = crypto.randomUUID();
     // 400 天持久，前端可读（用作“设备”）
     c.set('fqk', device, {
       path: '/',
       httpOnly: false,
-      sameSite: 'lax',     // 注意小写
-      secure: true,
+      sameSite: 'Lax',
       maxAge: 60 * 60 * 24 * 400,
     });
   }
-
-  const h = await headers(); // ← 必须 await
+  const h = headers();
   const ip =
-    h.get('cf-connecting-ip') ??
-    h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    h.get('x-real-ip') ??
+    h.get('cf-connecting-ip') ||
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    h.get('x-real-ip') ||
     '0.0.0.0';
-
   return `${device}|${ip}`;
 }
 
@@ -49,11 +45,12 @@ async function getClientKey(): Promise<string> {
 export async function getDailyRemaining(
   limit = 10
 ): Promise<{ limit: number; used: number; remaining: number; isPaid: boolean; key: string; source: 'memory' }> {
-  const key = await getClientKey();
+  const key = getClientKey();
   const date = todayStr();
   const rec = memoryStore[key];
   const used = (!rec || rec.date !== date) ? 0 : rec.used;
   const remaining = Math.max(0, limit - used);
+  // 这里先固定非付费，后面你接入真实会员逻辑再改
   return { limit, used, remaining, isPaid: false, key, source: 'memory' };
 }
 
@@ -62,7 +59,7 @@ export async function consumeUnits(
   amount = 1,
   limit = 10
 ): Promise<{ limit: number; used: number; remaining: number; isPaid: boolean; key: string; source: 'memory' }> {
-  const key = await getClientKey();
+  const key = getClientKey();
   const date = todayStr();
   const amt = Math.max(1, Math.floor(amount));
 

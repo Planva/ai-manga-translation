@@ -11,9 +11,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.1",
     "@radix-ui/react-select": "^2.2.6",
-    "@supabase/supabase-js": "^2.57.0",
     "@tailwindcss/postcss": "4.1.7",
     "@types/node": "^22.15.18",
     "@types/react": "19.1.4",
@@ -28,9 +26,11 @@
     "jspdf": "^3.0.2",
     "lucide-react": "^0.511.0",
     "marked": "^16.2.1",
-    "next": "15.5.1-canary.9",
+    "next": "^15.5.1-canary.9",
     "pdfjs-dist": "^5.4.54",
+    "pg": "^8.16.3",
     "postcss": "^8.5.3",
+    "postgres": "^3.4.7",
     "radix-ui": "^1.4.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -44,20 +44,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
     "dotenv": "^17.2.1",
     "drizzle-kit": "^0.31.4"
-  },
-  "overrides": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp",
-      "@tailwindcss/oxide",
-      "core-js"
-    ]
   }
 }

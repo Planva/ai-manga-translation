@@ -1,5 +1,5 @@
 // lib/billing/credit.ts
-import { db } from '@/lib/db/drizzle';
+import { requireDb } from '@/lib/db';
 import { creditWallet, creditLedger } from '@/lib/db/schema_billing';
 import { eq, sql } from 'drizzle-orm';
 
@@ -23,6 +23,8 @@ export async function addCreditsToUser(
   if (!Number.isInteger(userId)) {
     throw new Error(`addCreditsToUser: numeric userId required (got "${userIdRaw}")`);
   }
+
+  const db = requireDb();
 
   // 1) 钱包 upsert：balance 自增（注意是 balance，不是 credits）
   await db

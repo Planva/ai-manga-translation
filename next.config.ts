@@ -3,7 +3,7 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   experimental: {
-    ppr: false, // Cloudflare Pages 用稳定版 Next 构建：PPR 仅支持 canary
+    ppr: true, // 你需要的保留就行
   },
 }
 export default nextConfig

@@ -3,12 +3,11 @@
 import React from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-export const runtime = 'edge';
+
 /** 放到最前，避免“Cannot access 'fetcher' before initialization” */
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 const formatDate = (unixSec?: number | null) =>
   !unixSec ? '—' : new Date(unixSec * 1000).toLocaleDateString();
-
 /** 订阅信息（自动读取 /api/billing/subscription） */
 function SubscriptionInfo() {
   const { data: sub, isLoading, error, mutate } = useSWR(
@@ -63,7 +62,7 @@ function SubscriptionInfo() {
           {/* 4) 取消提示：cancel_at_period_end === true */}
           {isCanceled && (
             <div className="mt-1 text-xs text-amber-300/90">
-              Cancelled,Will expire at {formatDate(endsAt)}
+              Cancelled,Will expire at  {formatDate(endsAt)} 
             </div>
           )}
         </>
@@ -111,7 +110,7 @@ export default function DashboardPage() {
         <SubscriptionInfo />
       </section>
 
-      {/* 成员卡片（仅保留你本人 + 显示余额） */}
+      {/* 成员卡片（仅保留你本人 + 显示余额；已删除 Invite Team Member 板块） */}
       <section className="rounded-xl border border-white/10 bg-black/20 p-4">
         <div className="mb-4 text-sm text-white/80">Team Members</div>
         <CreditsRemaining />
@@ -120,6 +119,8 @@ export default function DashboardPage() {
           <div className="text-sm text-white/90">You</div>
         </div>
       </section>
+
+      
     </div>
   );
 }

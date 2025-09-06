@@ -7,21 +7,10 @@ import {
   updateTeamSubscription
 } from '@/lib/db/queries';
 
-// 统一读取站点基准 URL（Cloudflare Pages 常见环境变量名做兜底）
-const BASE_URL =
-  process.env.BASE_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  process.env.APP_URL ||
-  '';
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-04-30.basil'
+});
 
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error('STRIPE_SECRET_KEY is missing');
-  
-  export const stripe = new Stripe(key, {
-    // 在 Cloudflare/Edge 环境使用 fetch 客户端（Node/Pages 都兼容）
-    httpClient: Stripe.createFetchHttpClient(),
-  });
 export async function createCheckoutSession({
   team,
   priceId
@@ -44,10 +33,10 @@ export async function createCheckoutSession({
       }
     ],
     mode: 'subscription',
-    success_url: `${BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${BASE_URL}/pricing`,
-    customer: team!.stripeCustomerId || undefined,
-    client_reference_id: user!.id.toString(),
+    success_url: `${process.env.BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.BASE_URL}/pricing`,
+    customer: team.stripeCustomerId || undefined,
+    client_reference_id: user.id.toString(),
     allow_promotion_codes: true,
     subscription_data: {
       trial_period_days: 14
@@ -120,7 +109,7 @@ export async function createCustomerPortalSession(team: Team) {
 
   return stripe.billingPortal.sessions.create({
     customer: team.stripeCustomerId,
-    return_url: `${BASE_URL}/dashboard`,
+    return_url: `${process.env.BASE_URL}/dashboard`,
     configuration: configuration.id
   });
 }
@@ -141,19 +130,10 @@ export async function handleSubscriptionChange(
 
   if (status === 'active' || status === 'trialing') {
     const plan = subscription.items.data[0]?.plan;
-
-    // plan.product 在未 expand 时是 string；这里仅在可用时写入
-    const productId = (plan?.product as string | Stripe.Product | undefined);
-    const planName =
-      typeof productId === 'object' && productId !== null
-        ? (productId as Stripe.Product).name
-        : undefined;
-
     await updateTeamSubscription(team.id, {
       stripeSubscriptionId: subscriptionId,
-      stripeProductId:
-        typeof productId === 'string' ? productId : (productId as Stripe.Product | undefined)?.id,
-      planName,
+      stripeProductId: plan?.product as string,
+      planName: (plan?.product as Stripe.Product).name,
       subscriptionStatus: status
     });
   } else if (status === 'canceled' || status === 'unpaid') {

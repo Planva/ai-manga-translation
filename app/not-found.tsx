@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { CircleIcon } from 'lucide-react';
-export const runtime = 'edge';
+
 export default function NotFound() {
   return (
     <div className="flex items-center justify-center min-h-[100dvh]">

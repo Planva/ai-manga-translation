@@ -1,11 +1,12 @@
 // app/page.tsx
-import DashboardLayout from './(dashboard)/layout';
-import HomePage from './(dashboard)/page';
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-export default function Page() {
-  return (
-    <DashboardLayout>
-      <HomePage />
-    </DashboardLayout>
-  );
+// 如果 (dashboard)/page.tsx 有导出的 metadata，顺带再导出一次
+export { metadata } from './(dashboard)/page';
+
+import DashboardHome from './(dashboard)/page';
+
+export default function RootPage(props: any) {
+  return <DashboardHome {...props} />;
 }

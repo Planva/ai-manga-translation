@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 export default function SuccessPage() {
     return (
       <main className="mx-auto max-w-xl px-6 py-16 text-center text-white">

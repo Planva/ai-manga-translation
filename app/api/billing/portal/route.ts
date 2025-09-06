@@ -1,82 +1,70 @@
 // app/api/billing/portal/route.ts
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import { NextRequest, NextResponse } from 'next/server';
+import { getUser } from '@/lib/db/queries';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+
+// 与 subscription 接口一致的解析，确保两边拿到同一个 Customer
+async function resolveCustomerId(user: { id: number | string; email?: string | null; name?: string | null }) {
+  const candidates = new Map<string, Stripe.Customer>();
+
+  try {
+    const byMeta = await stripe.customers.search({
+      query: `metadata['app_user_id']:'${String(user.id).replace(/'/g, "\\'")}'`,
+      limit: 100,
+    });
+    for (const c of byMeta.data) candidates.set(c.id, c);
+  } catch {}
+
+  if (user.email) {
+    try {
+      const byEmail = await stripe.customers.search({
+        query: `email:'${user.email.replace(/'/g, "\\'")}'`,
+        limit: 100,
+      });
+      for (const c of byEmail.data) candidates.set(c.id, c);
+    } catch {}
+  }
+
+  // 若没有候选，则创建一个
+  if (candidates.size === 0) {
+    const created = await stripe.customers.create({
+      email: user.email ?? undefined,
+      name: user.name ?? undefined,
+      metadata: { app_user_id: String(user.id) },
+    });
+    return created.id;
+  }
+
+  // 有就取第一个（无所谓顺序，Portal 里也能看到和管理所有订阅/支付方式）
+  return [...candidates.keys()][0];
+}
 
 export async function GET(req: NextRequest) {
   try {
-    // 动态导入，避免构建期执行
-    const [{ getUser }, { default: Stripe }] = await Promise.all([
-      import('@/lib/db/queries'),
-      import('stripe'),
-    ]);
-
-    const apiKey = process.env.STRIPE_SECRET_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Missing STRIPE_SECRET_KEY' },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return new Response('STRIPE_SECRET_KEY not set', { status: 500 });
     }
-
-    // 在 Edge/Workers 环境使用 fetch http client（如果可用）
-    // @ts-ignore - 运行时存在该方法
-    const stripe = new Stripe(apiKey, {
-      // 一些环境下没有该方法，做可选调用
-      httpClient: (Stripe as any).createFetchHttpClient?.(),
-      // 不显式设置 apiVersion，避免 TS 字面量校验问题
-    });
 
     const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    if (!user) return new Response('Unauthorized', { status: 401 });
 
-    // 解析/获取 customerId（放到 handler 内，避免顶层 await/env）
-    const resolveCustomerId = async (): Promise<string | null> => {
-      const fromUser =
-        (user as any).stripe_customer_id ??
-        (user as any).stripeCustomerId ??
-        null;
-      if (fromUser) return fromUser;
+    const customerId = await resolveCustomerId({ id: user.id, email: user.email, name: user.name });
 
-      if ((user as any).email) {
-        const list = await stripe.customers.list({
-          email: (user as any).email,
-          limit: 1,
-        });
-        if (list.data.length > 0) return list.data[0]!.id;
-      }
-      return null;
-    };
-
-    const customerId = await resolveCustomerId();
-    if (!customerId) {
-      return NextResponse.json(
-        { error: 'Stripe customer not found for current user.' },
-        { status: 404, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-
-    const portal = await stripe.billingPortal.sessions.create({
+    const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${req.nextUrl.origin}/dashboard?portal=1`,
+      return_url: new URL('/dashboard?portal=1', req.url).toString(),
     });
 
-    // 重定向到 Stripe Billing Portal
-    return NextResponse.redirect(portal.url, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.redirect(session.url, { status: 303 });
   } catch (e: any) {
-    console.error('[billing/portal] error:', e?.stack || e);
-    return NextResponse.json(
-      { error: String(e?.message || e) },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
-    );
+    console.error('[billing/portal] error:', e);
+    const msg = process.env.NODE_ENV === 'development'
+      ? `Unable to open billing portal: ${e?.message ?? e}`
+      : 'Unable to open billing portal';
+    return new Response(msg, { status: 500 });
   }
 }

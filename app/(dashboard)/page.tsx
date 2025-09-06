@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-export const runtime = 'edge';
+
 /* ===== 顶部演示：保持你的样式 ===== */
 function TranslateReveal({
   before = '/demo/panel-original.webp',
@@ -618,36 +618,21 @@ export default function Page() {
       // —— 收集需要处理的任务：优先 files，其次 imageUrl ——
       const imageTasks: { id: string; name: string; file?: File; src?: string }[] = [];
       const pdfTasks:   { id: string; name: string; file: File }[] = [];
-
+  
       if (files.length > 0) {
         for (const f of files) {
-          // 先判断类型
-          const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
-          const kind: JobKind = isPdf ? 'pdf' : 'image';
-
-          // 尝试找出 onDrop 时就生成的卡片
-          const existed = jobs.find((j) => j.local?.file === f);
-
-          // 无论是否已存在，都构造一个“确定存在”的 Job 对象（避免 TS 报 undefined）
-          const ensured: Job = existed ?? {
-            id: (crypto as any)?.randomUUID?.() || Math.random().toString(36).slice(2),
-            kind,
-            name: f.name,
-            status: 'uploaded',
-            local: { file: f },
-          };
-
-          // 如果是新建的，占位卡片补到 UI
-          if (!existed) {
-            setJobs((prev) => [...prev, ensured]);
+          // 找到 onDrop 时就生成的卡片
+          let job = jobs.find((j) => j.local?.file === f);
+          if (!job) {
+            const id = (crypto as any)?.randomUUID?.() || Math.random().toString(36).slice(2);
+            const kind: JobKind = f.type === 'application/pdf' || /\.pdf$/i.test(f.name) ? 'pdf' : 'image';
+            // 如果没卡片（极少数情况），补一张“已上传”的
+            setJobs((prev) => [...prev, { id, kind, name: f.name, status: 'uploaded', local: { file: f } }]);
+            job = { id, kind, name: f.name, status: 'uploaded', local: { file: f } } as any;
           }
-
-          // 根据类型放入待处理列表
-          if (ensured.kind === 'image') {
-            imageTasks.push({ id: ensured.id, name: f.name, file: f });
-          } else {
-            pdfTasks.push({ id: ensured.id, name: f.name, file: f });
-          }
+  
+          if (job.kind === 'image') imageTasks.push({ id: job.id, name: f.name, file: f });
+          else pdfTasks.push({ id: job.id, name: f.name, file: f });
         }
       } else if (imageUrl.trim()) {
         const id = (crypto as any)?.randomUUID?.() || Math.random().toString(36).slice(2);
@@ -669,7 +654,6 @@ export default function Page() {
         setErr('Please choose files or paste an image URL.');
         return;
       }
-
   
       
   

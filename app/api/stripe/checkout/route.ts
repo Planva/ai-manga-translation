@@ -1,67 +1,98 @@
-// app/api/stripe/checkout/route.ts
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db/drizzle';
+import { users, teams, teamMembers } from '@/lib/db/schema';
+import { setSession } from '@/lib/auth/session';
+import { NextRequest, NextResponse } from 'next/server';
+import { stripe } from '@/lib/payments/stripe';
+import Stripe from 'stripe';
 
-import { NextResponse } from 'next/server';
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const sessionId = searchParams.get('session_id');
 
-function asString(v: unknown): string | undefined {
-  return typeof v === 'string' && v.trim() ? v : undefined;
-}
+  if (!sessionId) {
+    return NextResponse.redirect(new URL('/pricing', request.url));
+  }
 
-export async function POST(req: Request) {
   try {
-    // 动态导入 Stripe，避免构建期读取 env
-    const { default: Stripe } = await import('stripe');
-    const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) {
-      return NextResponse.json({ error: 'Missing STRIPE_SECRET_KEY' }, { status: 500 });
-    }
-
-    const stripe = new Stripe(key, {
-      httpClient: Stripe.createFetchHttpClient(), // 兼容 Edge
-      // 不手动指定 apiVersion，避免 basil 类型冲突
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['customer', 'subscription'],
     });
 
-    const body = await req.json().catch(() => ({} as any));
-
-    const priceId = asString(body?.priceId ?? body?.price_id);
-    if (!priceId) {
-      return NextResponse.json({ error: 'Missing priceId' }, { status: 400 });
+    if (!session.customer || typeof session.customer === 'string') {
+      throw new Error('Invalid customer data from Stripe.');
     }
 
-    const url = new URL(req.url);
-    const origin =
-      asString(body?.origin) ||
-      req.headers.get('origin') ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      `${url.protocol}//${url.host}`;
+    const customerId = session.customer.id;
+    const subscriptionId =
+      typeof session.subscription === 'string'
+        ? session.subscription
+        : session.subscription?.id;
 
-    const mode: 'payment' | 'subscription' =
-      body?.mode === 'payment' ? 'payment' : 'subscription';
+    if (!subscriptionId) {
+      throw new Error('No subscription found for this session.');
+    }
 
-    const successUrl =
-      asString(body?.successUrl) ||
-      `${origin}/billing?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl =
-      asString(body?.cancelUrl) || `${origin}/billing?canceled=1`;
-
-    const session = await stripe.checkout.sessions.create({
-      mode,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: { price_id: priceId },
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ['items.data.price.product'],
     });
 
-    return NextResponse.json(
-      { id: session.id, url: session.url },
-      { status: 200, headers: { 'Cache-Control': 'no-store' } }
-    );
-  } catch (err: any) {
-    console.error('[stripe/checkout] error:', err);
-    return NextResponse.json(
-      { error: err?.message ?? 'Checkout error' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
-    );
+    const plan = subscription.items.data[0]?.price;
+
+    if (!plan) {
+      throw new Error('No plan found for this subscription.');
+    }
+
+    const productId = (plan.product as Stripe.Product).id;
+
+    if (!productId) {
+      throw new Error('No product ID found for this subscription.');
+    }
+
+    const userId = session.client_reference_id;
+    if (!userId) {
+      throw new Error("No user ID found in session's client_reference_id.");
+    }
+
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, Number(userId)))
+      .limit(1);
+
+    if (user.length === 0) {
+      throw new Error('User not found in database.');
+    }
+
+    const userTeam = await db
+      .select({
+        teamId: teamMembers.teamId,
+      })
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, user[0].id))
+      .limit(1);
+
+    if (userTeam.length === 0) {
+      throw new Error('User is not associated with any team.');
+    }
+
+    await db
+      .update(teams)
+      .set({
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        stripeProductId: productId,
+        planName: (plan.product as Stripe.Product).name,
+        subscriptionStatus: subscription.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(teams.id, userTeam[0].teamId));
+
+   
+    await setSession(user[0], "paid"); 
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  } catch (error) {
+    console.error('Error handling successful checkout:', error);
+    return NextResponse.redirect(new URL('/error', request.url));
   }
 }
