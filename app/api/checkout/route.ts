@@ -7,7 +7,7 @@ import { getSession } from '@/lib/auth/session';
 import { SITE_URL } from '@/lib/env';
 import { STRIPE_PRICES, FALLBACK_PRICE_META } from '@/lib/pay/prices';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' });
 
 function isKnownPrice(priceId: string): priceId is typeof STRIPE_PRICES[keyof typeof STRIPE_PRICES] {
   return Object.values(STRIPE_PRICES).includes(priceId as any);
