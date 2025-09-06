@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-export const runtime = 'edge';
+
 
 /* ===== 顶部演示：保持你的样式 ===== */
 function TranslateReveal({
