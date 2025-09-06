@@ -16,7 +16,7 @@ export async function verifyPassword(plain: string, hashed: string) {
 }
 
 export async function getSession(): Promise<UserClaims | null> {
-  const cookieStore = await cookies();                // ✅ await
+  const cookieStore = await cookies(); // ✅ Next 15 要求 await
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
@@ -27,10 +27,34 @@ export async function getSession(): Promise<UserClaims | null> {
   }
 }
 
-export async function setSession(payload: SessionPayload, opts?: { expires?: Date }) {
+// 允许直接传 DB 用户行，自动归一化为 SessionPayload
+type DbUserRow = {
+  id: number;
+  email: string;
+  name: string | null;
+  role: string;
+};
+
+export async function setSession(
+  payload: SessionPayload | DbUserRow,
+  opts?: { expires?: Date }
+) {
+  const normalized: SessionPayload =
+    'user' in payload
+      ? payload
+      : {
+          user: {
+            id: payload.id,
+            email: payload.email,
+            name: payload.name ?? undefined,
+            role: payload.role,
+          },
+        };
+
   const exp = opts?.expires ?? new Date(Date.now() + ONE_DAY);
-  const token = await signToken(payload, exp);
-  const cookieStore = await cookies();                // ✅ await
+  const token = await signToken(normalized, exp);
+
+  const cookieStore = await cookies(); // ✅ await
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
@@ -41,6 +65,6 @@ export async function setSession(payload: SessionPayload, opts?: { expires?: Dat
 }
 
 export async function clearSession() {
-  const cookieStore = await cookies();                // ✅ await
+  const cookieStore = await cookies(); // ✅ await
   cookieStore.delete(SESSION_COOKIE);
 }
