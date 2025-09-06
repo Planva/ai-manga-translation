@@ -102,7 +102,7 @@ export default function SiteHeader() {
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="site-nav-link">Home</Link>
             <Link href="/pricing" className="site-nav-link">Price</Link>
-            <Link href="/blog" className="site-nav-link">Blog</Link>
+            
             <Link href="/#faq" className="site-nav-link">FAQ</Link>
             <Link href="/#how-to" className="site-nav-link">How to use</Link>
           </nav>
