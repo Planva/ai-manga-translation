@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 import Stripe from 'stripe';
 import { getUser } from '@/lib/db/queries';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' });
 
 const ENTITLING_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']); // 这些才算“当前可用订阅”
 
