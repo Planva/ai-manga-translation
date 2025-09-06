@@ -1,0 +1,4 @@
+name = "ai-manga-translation"          # 必须与 Cloudflare Pages 项目名一致
+compatibility_date = "2025-09-05"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"

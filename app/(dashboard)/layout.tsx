@@ -1,13 +1,23 @@
 // app/(dashboard)/layout.tsx
-import type { ReactNode } from 'react';
+export const runtime = 'edge';
 import SiteHeader from '@/components/site-header';
 import SiteFooter from "@/components/SiteFooter";
-export default function Layout({ children }: { children: React.ReactNode }) {
+import { SWRConfig } from 'swr';
+import { getUser, getTeamForUser } from '@/lib/db/queries';
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <section className="flex flex-col min-h-screen">
+    <SWRConfig
+      value={{
+        fallback: {
+          '/api/user': getUser(),        // 服务端取数
+          '/api/team': getTeamForUser(), // 服务端取数
+        },
+      }}
+    >
       <SiteHeader />
       {children}
       <SiteFooter />
-    </section>
+    </SWRConfig>
   );
 }

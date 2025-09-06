@@ -1,14 +1,13 @@
 // app/api/translate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'nodejs';          // ⚠️确保不是 edge
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;           // ⚠️Vercel 上将允许更长执行
 
 const ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID!;
 const API_KEY     = process.env.RUNPOD_API_KEY!;
 const RUNPOD_URL  = `https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync`;
-const REQ_TIMEOUT_MS = 120_000;           // 可按需增大
+const REQ_TIMEOUT_MS = 120_000; // 可按需增大
 
 function mapRendering(verticalMode: 'auto'|'horizontal'|'vertical') {
   if (verticalMode === 'horizontal') {

@@ -1,24 +1,62 @@
 // app/api/billing/subscription/route.ts
-export const runtime = 'nodejs';
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-import Stripe from 'stripe';
-import { getUser } from '@/lib/db/queries';
+import { NextResponse } from 'next/server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+// 这些状态才视为“有权限”的订阅
+const ENTITLING_STATUSES = new Set([
+  'active',
+  'trialing',
+  'past_due',
+  'unpaid',
+]);
 
-const ENTITLING_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']); // 这些才算“当前可用订阅”
+/** 统一把 Subscription 映射成前端可用的瘦对象 */
+function toDto(s: any) {
+  const items = s?.items?.data ?? [];
+  const firstItem = items[0];
+  const price = firstItem?.price;
 
-async function resolveCustomerId(user: { id: number | string; email?: string | null; name?: string | null }) {
-  const found = new Map<string, Stripe.Customer>();
+  const current_period_end =
+    (s as any)['current_period_end'] ??
+    (s as any)['currentPeriodEnd'] ??
+    null;
 
+  const cancel_at_period_end =
+    (s as any)['cancel_at_period_end'] ??
+    (s as any)['cancelAtPeriodEnd'] ??
+    false;
+
+  return {
+    id: s?.id ?? null,
+    status: s?.status ?? null,
+    priceId: price?.id ?? null,
+    nickname: price?.nickname ?? null,
+    unit_amount: price?.unit_amount ?? null,
+    currency: price?.currency ?? null,
+    quantity: firstItem?.quantity ?? 1,
+    cancel_at_period_end,
+    current_period_end,
+  };
+}
+
+async function resolveCustomerId(
+  stripe: any,
+  user: { id: number | string; email?: string | null; name?: string | null }
+) {
+  const found = new Map<string, any>();
+
+  // 1) 按 metadata.app_user_id
   try {
     const byMeta = await stripe.customers.search({
       query: `metadata['app_user_id']:'${String(user.id).replace(/'/g, "\\'")}'`,
       limit: 50,
     });
     for (const c of byMeta.data) found.set(c.id, c);
-  } catch {}
+  } catch { /* ignore */ }
 
+  // 2) 按 email
   if (user.email) {
     try {
       const byEmail = await stripe.customers.search({
@@ -26,85 +64,99 @@ async function resolveCustomerId(user: { id: number | string; email?: string | n
         limit: 50,
       });
       for (const c of byEmail.data) found.set(c.id, c);
-    } catch {}
+    } catch { /* ignore */ }
   }
 
-  if (found.size === 0) {
-    const created = await stripe.customers.create({
-      email: user.email ?? undefined,
-      name: user.name ?? undefined,
-      metadata: { app_user_id: String(user.id) },
-    });
-    return created.id;
-  }
-  return [...found.keys()][0];
+  // 3) 命中则返回
+  if (found.size > 0) return [...found.keys()][0];
+
+  // 4) 创建
+  const created = await stripe.customers.create({
+    email: user.email ?? undefined,
+    name: user.name ?? undefined,
+    metadata: { app_user_id: String(user.id) },
+  });
+  return created.id;
 }
 
 export async function GET() {
   try {
+    // 动态导入，避免构建期触发
+    const [{ getUser }, { default: Stripe }] = await Promise.all([
+      import('@/lib/db/queries'),
+      import('stripe'),
+    ]);
+
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Missing STRIPE_SECRET_KEY' },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // 在 Edge/Workers 使用 fetch http client（若可用）
+    // 不显式设置 apiVersion，避免类型字面量导致的编译/打包问题
+    // @ts-ignore
+    const stripe = new Stripe(apiKey, {
+      // @ts-ignore
+      httpClient: (Stripe as any).createFetchHttpClient?.(),
+    });
+
     const user = await getUser();
-    if (!user) return new Response('Unauthorized', { status: 401 });
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
-    const customerId = await resolveCustomerId({ id: user.id, email: user.email, name: user.name });
+    const customerId = await resolveCustomerId(stripe, {
+      id: (user as any).id,
+      email: (user as any).email,
+      name: (user as any).name,
+    });
 
-    // 只展开到 price，避免“展开层级过深”的 400
-    const subs = await stripe.subscriptions.list({
+    const list = await stripe.subscriptions.list({
       customer: customerId,
       status: 'all',
       limit: 20,
       expand: ['data.items.data.price'],
     });
 
-    // 选出“当前可用订阅”（只要在 ENTITLING_STATUSES 中才算）
-    const usable = subs.data.filter((s) => ENTITLING_STATUSES.has(s.status as any));
-    let current: any = null;
+    const usable = list.data.filter((s: any) =>
+      ENTITLING_STATUSES.has(s?.status)
+    );
 
-    if (usable.length > 0) {
-      // 简单选一个最重要的（active 优先，其次 trialing...）
-      const order = ['active', 'trialing', 'past_due', 'unpaid'];
-      usable.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
+    // 选一个当前生效的订阅：active > trialing > past_due > unpaid
+    const rank: Record<string, number> = {
+      active: 4,
+      trialing: 3,
+      past_due: 2,
+      unpaid: 1,
+    };
+    const current =
+      usable.length > 0
+        ? usable
+            .slice()
+            .sort(
+              (a: any, b: any) =>
+                (rank[b?.status] ?? 0) - (rank[a?.status] ?? 0)
+            )[0]
+        : null;
 
-      const s = usable[0];
-      const item = s.items.data[0];
-      const price = item?.price as Stripe.Price | undefined;
+    const all = list.data.map((s: any) => toDto(s));
+    const currentDto = current ? toDto(current) : null;
 
-      // product 名称：不再展开 product，若需要展示友好名，优先 price.nickname
-      const displayName = price?.nickname ?? null;
-
-      current = {
-        id: s.id,
-        status: s.status,
-        interval: price?.recurring?.interval ?? null,
-        display_name: displayName,
-        unit_amount: price?.unit_amount ?? null,
-        currency: price?.currency ?? null,
-        quantity: item?.quantity ?? 1,
-        current_period_end: s.current_period_end,
-        cancel_at_period_end: s.cancel_at_period_end ?? true,
-        // 衍生字段：若已设置到期取消，给出 ends_at，供前端展示“将于…失效”
-        ends_at: s.cancel_at_period_end ? s.current_period_end : null,
-      };
-    }
-
-    // all 供调试/扩展使用（不影响前端显示）
-    const all = subs.data.map((s) => {
-      const it = s.items.data[0];
-      const p = it?.price as Stripe.Price | undefined;
-      return {
-        id: s.id,
-        status: s.status,
-        interval: p?.recurring?.interval ?? null,
-        unit_amount: p?.unit_amount ?? null,
-        currency: p?.currency ?? null,
-        quantity: it?.quantity ?? 1,
-        cancel_at_period_end: s.cancel_at_period_end ?? false,
-        current_period_end: s.current_period_end,
-      };
-    });
-
-    return Response.json({ current, all, customer_id: customerId });
+    return NextResponse.json(
+      { current: currentDto, all, customer_id: customerId },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (e: any) {
-    console.error('[billing/subscription] error:', e);
-    return Response.json({ current: null, all: [], error: e?.message ?? String(e) });
+    console.error('[billing/subscription] error:', e?.stack || e);
+    return NextResponse.json(
+      { current: null, all: [], error: String(e?.message || e) },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }

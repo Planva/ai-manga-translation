@@ -20,7 +20,8 @@ import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
-import { getUser, getUserWithTeam } from '@/lib/db/queries';
+//import { getUser, getUserWithTeam } from '@/lib/db/queries';
+import { getUser, getTeamForUser } from '@/lib/db/queries';
 import {
   validatedAction,
   validatedActionWithUser
@@ -223,10 +224,14 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
 export async function signOut() {
   const user = (await getUser()) as User;
-  const userWithTeam = await getUserWithTeam(user.id);
-  await logActivity(userWithTeam?.teamId, user.id, ActivityType.SIGN_OUT);
+
+  // 以前：getUserWithTeam(user.id) —— 现在直接查当前用户所在团队
+  const team = await getTeamForUser(); // 无参，返回当前用户的团队或 null
+
+  await logActivity(team?.id, user.id, ActivityType.SIGN_OUT);
   (await cookies()).delete('session');
 }
+
 
 const updatePasswordSchema = z.object({
   currentPassword: z.string().min(8).max(100),
@@ -234,14 +239,25 @@ const updatePasswordSchema = z.object({
   confirmPassword: z.string().min(8).max(100)
 });
 
+// ===== updatePassword =====
 export const updatePassword = validatedActionWithUser(
   updatePasswordSchema,
   async (data, _, user) => {
     const { currentPassword, newPassword, confirmPassword } = data;
 
+    // 关键：先收窄 passwordHash
+    if (!user.passwordHash) {
+      return {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+        error: 'This account does not have a password set. Please set a password first.'
+      };
+    }
+
     const isPasswordValid = await comparePasswords(
       currentPassword,
-      user.passwordHash
+      user.passwordHash // 现在已被收窄为 string
     );
 
     if (!isPasswordValid) {
@@ -252,7 +268,6 @@ export const updatePassword = validatedActionWithUser(
         error: 'Current password is incorrect.'
       };
     }
-
     if (currentPassword === newPassword) {
       return {
         currentPassword,
@@ -261,7 +276,6 @@ export const updatePassword = validatedActionWithUser(
         error: 'New password must be different from the current password.'
       };
     }
-
     if (confirmPassword !== newPassword) {
       return {
         currentPassword,
@@ -272,71 +286,63 @@ export const updatePassword = validatedActionWithUser(
     }
 
     const newPasswordHash = await hashPassword(newPassword);
-    const userWithTeam = await getUserWithTeam(user.id);
+    const team = await getTeamForUser();
 
     await Promise.all([
-      db
-        .update(users)
-        .set({ passwordHash: newPasswordHash })
-        .where(eq(users.id, user.id)),
-      logActivity(userWithTeam?.teamId, user.id, ActivityType.UPDATE_PASSWORD)
+      db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, user.id)),
+      logActivity(team?.id, user.id, ActivityType.UPDATE_PASSWORD)
     ]);
 
-    return {
-      success: 'Password updated successfully.'
-    };
+    return { success: 'Password updated successfully.' };
   }
 );
+
+
 
 const deleteAccountSchema = z.object({
   password: z.string().min(8).max(100)
 });
 
+// ===== deleteAccount =====
 export const deleteAccount = validatedActionWithUser(
   deleteAccountSchema,
   async (data, _, user) => {
     const { password } = data;
 
-    const isPasswordValid = await comparePasswords(password, user.passwordHash);
-    if (!isPasswordValid) {
-      return {
-        password,
-        error: 'Incorrect password. Account deletion failed.'
-      };
+    // 同样先收窄
+    if (!user.passwordHash) {
+      return { password, error: 'This account does not have a password set.' };
     }
 
-    const userWithTeam = await getUserWithTeam(user.id);
+    const isPasswordValid = await comparePasswords(password, user.passwordHash);
+    if (!isPasswordValid) {
+      return { password, error: 'Incorrect password. Account deletion failed.' };
+    }
 
-    await logActivity(
-      userWithTeam?.teamId,
-      user.id,
-      ActivityType.DELETE_ACCOUNT
-    );
+    const team = await getTeamForUser();
 
-    // Soft delete
+    await logActivity(team?.id, user.id, ActivityType.DELETE_ACCOUNT);
+
     await db
       .update(users)
       .set({
         deletedAt: sql`CURRENT_TIMESTAMP`,
-        email: sql`CONCAT(email, '-', id, '-deleted')` // Ensure email uniqueness
+        email: sql`CONCAT(email, '-', id, '-deleted')`
       })
       .where(eq(users.id, user.id));
 
-    if (userWithTeam?.teamId) {
+    if (team?.id) {
       await db
         .delete(teamMembers)
-        .where(
-          and(
-            eq(teamMembers.userId, user.id),
-            eq(teamMembers.teamId, userWithTeam.teamId)
-          )
-        );
+        .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, team.id)));
     }
 
     (await cookies()).delete('session');
     redirect('/sign-in');
   }
 );
+
+
 
 const updateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -347,16 +353,17 @@ export const updateAccount = validatedActionWithUser(
   updateAccountSchema,
   async (data, _, user) => {
     const { name, email } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
+    const team = await getTeamForUser();
 
     await Promise.all([
       db.update(users).set({ name, email }).where(eq(users.id, user.id)),
-      logActivity(userWithTeam?.teamId, user.id, ActivityType.UPDATE_ACCOUNT)
+      logActivity(team?.id, user.id, ActivityType.UPDATE_ACCOUNT)
     ]);
 
     return { name, success: 'Account updated successfully.' };
   }
 );
+
 
 const removeTeamMemberSchema = z.object({
   memberId: z.number()
@@ -366,9 +373,9 @@ export const removeTeamMember = validatedActionWithUser(
   removeTeamMemberSchema,
   async (data, _, user) => {
     const { memberId } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
+    const team = await getTeamForUser();
 
-    if (!userWithTeam?.teamId) {
+    if (!team?.id) {
       return { error: 'User is not part of a team' };
     }
 
@@ -377,19 +384,16 @@ export const removeTeamMember = validatedActionWithUser(
       .where(
         and(
           eq(teamMembers.id, memberId),
-          eq(teamMembers.teamId, userWithTeam.teamId)
+          eq(teamMembers.teamId, team.id)
         )
       );
 
-    await logActivity(
-      userWithTeam.teamId,
-      user.id,
-      ActivityType.REMOVE_TEAM_MEMBER
-    );
+    await logActivity(team.id, user.id, ActivityType.REMOVE_TEAM_MEMBER);
 
     return { success: 'Team member removed successfully' };
   }
 );
+
 
 const inviteTeamMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -400,9 +404,9 @@ export const inviteTeamMember = validatedActionWithUser(
   inviteTeamMemberSchema,
   async (data, _, user) => {
     const { email, role } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
+    const team = await getTeamForUser();
 
-    if (!userWithTeam?.teamId) {
+    if (!team?.id) {
       return { error: 'User is not part of a team' };
     }
 
@@ -410,23 +414,20 @@ export const inviteTeamMember = validatedActionWithUser(
       .select()
       .from(users)
       .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
-      .where(
-        and(eq(users.email, email), eq(teamMembers.teamId, userWithTeam.teamId))
-      )
+      .where(and(eq(users.email, email), eq(teamMembers.teamId, team.id)))
       .limit(1);
 
     if (existingMember.length > 0) {
       return { error: 'User is already a member of this team' };
     }
 
-    // Check if there's an existing invitation
     const existingInvitation = await db
       .select()
       .from(invitations)
       .where(
         and(
           eq(invitations.email, email),
-          eq(invitations.teamId, userWithTeam.teamId),
+          eq(invitations.teamId, team.id),
           eq(invitations.status, 'pending')
         )
       )
@@ -436,24 +437,17 @@ export const inviteTeamMember = validatedActionWithUser(
       return { error: 'An invitation has already been sent to this email' };
     }
 
-    // Create a new invitation
     await db.insert(invitations).values({
-      teamId: userWithTeam.teamId,
+      teamId: team.id,
       email,
       role,
       invitedBy: user.id,
       status: 'pending'
     });
 
-    await logActivity(
-      userWithTeam.teamId,
-      user.id,
-      ActivityType.INVITE_TEAM_MEMBER
-    );
-
-    // TODO: Send invitation email and include ?inviteId={id} to sign-up URL
-    // await sendInvitationEmail(email, userWithTeam.team.name, role)
+    await logActivity(team.id, user.id, ActivityType.INVITE_TEAM_MEMBER);
 
     return { success: 'Invitation sent successfully' };
   }
 );
+

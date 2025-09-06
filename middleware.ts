@@ -1,49 +1,28 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { signToken, verifyToken } from '@/lib/auth/session';
+// ❌ 不要在 middleware 里写：export const runtime = 'edge';
 
-const protectedRoutes = '/dashboard';
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth/jwt';
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get('session');
-  const isProtectedRoute = pathname.startsWith(protectedRoutes);
+const PROTECTED_PREFIXES = ['/dashboard'];
 
-  if (isProtectedRoute && !sessionCookie) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
-  }
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  let res = NextResponse.next();
-
-  if (sessionCookie && request.method === 'GET') {
+  if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    const token = req.cookies.get('session')?.value;
+    if (!token) return NextResponse.redirect(new URL('/sign-in', req.url));
     try {
-      const parsed = await verifyToken(sessionCookie.value);
-      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      // 仅校验，不做解构使用
+      // 注意：verifyToken 里不能使用 Node-API（已用 jose/edge-safe）
 
-      res.cookies.set({
-        name: 'session',
-        value: await signToken({
-          ...parsed,
-          expires: expiresInOneDay.toISOString()
-        }),
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        expires: expiresInOneDay
-      });
-    } catch (error) {
-      console.error('Error updating session:', error);
-      res.cookies.delete('session');
-      if (isProtectedRoute) {
-        return NextResponse.redirect(new URL('/sign-in', request.url));
-      }
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL('/sign-in', req.url));
     }
   }
 
-  return res;
+  return NextResponse.next();
 }
 
-export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-  runtime: 'nodejs'
-};
+// 正常保留 matcher 配置
+export const config = { matcher: ['/dashboard/:path*'] };
