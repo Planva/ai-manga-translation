@@ -1,63 +1,46 @@
-// lib/auth/session.server.ts —— 仅服务器使用（Route Handlers/Server Actions/RSC）
+// lib/auth/session.server.ts
 import 'server-only';
 import { cookies } from 'next/headers';
-import { hash as bcryptHash, compare as bcryptCompare } from 'bcrypt-ts';
+import { hash as bcryptHash, compare as bcryptCompare } from 'bcryptjs';
 import { signToken, verifyToken, type SessionPayload, type UserClaims } from './jwt';
 
 const SESSION_COOKIE = 'session';
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
-export async function hashPassword(plain: string): Promise<string> {
+export async function hashPassword(plain: string) {
   return bcryptHash(plain, 10);
 }
-export async function comparePasswords(plain: string, hashed: string): Promise<boolean> {
+
+export async function verifyPassword(plain: string, hashed: string) {
   return bcryptCompare(plain, hashed);
 }
 
-export async function createSession(user: {
-  id: string | number;
-  email: string;
-  name?: string | null;
-  role?: string | null;
-}): Promise<void> {
-  const claims: UserClaims = {
-    id: String(user.id ?? ''),
-    email: user.email,
-    name: user.name ?? null,
-    role: user.role ?? null
-  };
-  const token = await signToken({ user: claims });
-
-  const exp = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const store = await cookies(); // Next 15: 这里需要 await
-  store.set(SESSION_COOKIE, token, {
-    expires: exp,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/'
-  });
-}
-
-export async function getSession(): Promise<SessionPayload | null> {
-  const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
+export async function getSession(): Promise<UserClaims | null> {
+  const cookieStore = await cookies();                // ✅ await
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
-    return await verifyToken(token);
+    const { claims } = await verifyToken(token);
+    return claims;
   } catch {
     return null;
   }
 }
 
-export async function clearSession(): Promise<void> {
-  const store = await cookies();
-  store.delete(SESSION_COOKIE);
+export async function setSession(payload: SessionPayload, opts?: { expires?: Date }) {
+  const exp = opts?.expires ?? new Date(Date.now() + ONE_DAY);
+  const token = await signToken(payload, exp);
+  const cookieStore = await cookies();                // ✅ await
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    expires: exp,
+  });
 }
 
-export async function getUserId(): Promise<number | null> {
-  const session = await getSession();
-  const id = session?.user?.id;
-  if (!id) return null;
-  const n = Number(id);
-  return Number.isFinite(n) ? n : null;
+export async function clearSession() {
+  const cookieStore = await cookies();                // ✅ await
+  cookieStore.delete(SESSION_COOKIE);
 }
