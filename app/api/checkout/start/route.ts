@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { db } from '@/lib/db';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   if (!priceId) return NextResponse.json({ error: 'price not configured' }, { status: 500 });
 
   // 读取/创建 customer
-  const db = await getDb();
+  
   const usersTable = (await import('@/lib/db/schema')).users as any; // 你的 users 表 Schema（如果这里报错，说明你没 export users schema，可以先跳过更新 customer）
   let customerId: string | null = null;
 

@@ -2,7 +2,7 @@
 export const runtime = 'nodejs';
 
 import type { NextRequest } from 'next/server';
-import { requireDb } from '@/lib/db';
+import { db } from '@/lib/db';
 import { creditWallet } from '@/lib/db/schema_billing';
 import { eq } from 'drizzle-orm';
 import { getSession } from '@/lib/auth/session';
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest) {
       return Response.json({ loggedIn: false, balance: 0 });
     }
 
-    const db = requireDb();
+
     const rows = await db
       .select({ balance: creditWallet.balance })
       .from(creditWallet)

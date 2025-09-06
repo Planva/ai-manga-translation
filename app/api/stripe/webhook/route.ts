@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 import { addCreditsToUser } from '@/lib/billing/credit';
-import { requireDb } from '@/lib/db';
+import { db } from '@/lib/db';
 import { sql } from 'drizzle-orm';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -24,7 +24,7 @@ async function resolveNumericUserId(userIdRaw: any): Promise<number> {
 
   const v = String(userIdRaw ?? '').trim();
   if (v && v.includes('@')) {
-    const db = requireDb();
+    
     const r: any = await db.execute(sql`select id from users where email = ${v} limit 1`);
     const id = r?.rows?.[0]?.id;
     if (Number.isInteger(id)) return id as number;
