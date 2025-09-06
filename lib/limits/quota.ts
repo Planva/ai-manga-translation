@@ -1,6 +1,6 @@
 // lib/limits/quota.ts
 import type { NextRequest } from 'next/server';
-import { db } from '@/lib/db'
+import { requireDb } from '@/lib/db';
 import { sql } from 'drizzle-orm';
 
 export const DAILY_FREE_LIMIT = 10;
@@ -49,7 +49,7 @@ export async function getAnonKey(req: NextRequest) {
 
 // === read-only ===
 export async function getDailyRemaining(req: NextRequest, limit = DAILY_FREE_LIMIT) {
-  
+  const db = requireDb();
   const { keyType, key } = await getAnonKey(req);
   const d = today();
 
@@ -67,7 +67,7 @@ export async function getDailyRemaining(req: NextRequest, limit = DAILY_FREE_LIM
 
 // === consume on success ===
 export async function consumeUnits(req: NextRequest, amount: number) {
-  
+  const db = requireDb();
   const { keyType, key } = await getAnonKey(req);
   const d = today();
 

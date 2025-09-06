@@ -557,7 +557,7 @@ export default function Page() {
         else units += 1;
       }
       setSelectedUnits(units);
-  
+
       if (!quota) {
         setErr('Fetching your free quota failed. Please try again.');
         return;
@@ -570,19 +570,18 @@ export default function Page() {
         setErr(`You need ${units - quota.remaining} more free credits. Please subscribe or recharge.`);
         return;
       }
-  
       // ===== 预检：统计本次将消耗的总张数 =====
       let needUnits = 0;
-  
+
       // 1) 普通图片数
       const imageFiles = files.filter(
         f => !(f.type === 'application/pdf' || /\.pdf$/i.test(f.name))
       );
       needUnits += imageFiles.length;
-  
+
       // 2) URL 图片（如果填写了）
       if (imageUrl.trim()) needUnits += 1;
-  
+
       // 3) PDF 总页数
       const pdfFiles = files.filter(
         f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
@@ -594,12 +593,11 @@ export default function Page() {
         pdfPagesTotal += n;
       }
       needUnits += pdfPagesTotal;
-  
       // 4) 向后端查询今日剩余额度（匿名也可查）
       try {
         const qr = await fetch('/api/quota/remaining', { method: 'GET' });
         const qj = await qr.json();
-  
+
         // 付费用户：直接通过
         if (!qj?.isPaid) {
           const remaining = Number(qj?.remaining ?? 0);
@@ -607,7 +605,7 @@ export default function Page() {
             setLoading(false);
             setErr(
               `超出今日免费额度：本次需要 ${needUnits} 张，剩余 ${remaining} 张。` +
-                `请登录/升级套餐或分批提交（每日上限 ${qj?.limit ?? 10} 张）。`
+              `请登录/升级套餐或分批提交（每日上限 ${qj?.limit ?? 10} 张）。`
             );
             return; // ❗️直接拦截，不再继续发任务
           }
@@ -616,52 +614,25 @@ export default function Page() {
         // 查询失败时不阻断（后端 /start 还有兜底），仅做提示
         console.warn('quota check failed', e);
       }
-  
+
       // —— 收集需要处理的任务：优先 files，其次 imageUrl ——
       const imageTasks: { id: string; name: string; file?: File; src?: string }[] = [];
-      const pdfTasks: { id: string; name: string; file: File }[] = [];
+      const pdfTasks:   { id: string; name: string; file: File }[] = [];
   
       if (files.length > 0) {
         for (const f of files) {
-          // 先找 onDrop 时就生成的卡片
-          const existed = jobs.find((j) => j.local?.file === f);
-  
-          // 计算/确保 id 与 kind（如果不存在卡片则补一张）
-          let ensuredId = existed?.id;
-          let ensuredKind: JobKind | undefined = existed?.kind;
-  
-          if (!existed) {
-            const newId = (crypto as any)?.randomUUID?.() || Math.random().toString(36).slice(2);
-            const newKind: JobKind =
-              f.type === 'application/pdf' || /\.pdf$/i.test(f.name) ? 'pdf' : 'image';
-  
-            const created = {
-              id: newId,
-              kind: newKind,
-              name: f.name,
-              status: 'uploaded',
-              local: { file: f },
-            } as const;
-  
-            setJobs((prev) => [...prev, created]);
-  
-            ensuredId = newId;
-            ensuredKind = newKind;
+          // 找到 onDrop 时就生成的卡片
+          let job = jobs.find((j) => j.local?.file === f);
+          if (!job) {
+            const id = (crypto as any)?.randomUUID?.() || Math.random().toString(36).slice(2);
+            const kind: JobKind = f.type === 'application/pdf' || /\.pdf$/i.test(f.name) ? 'pdf' : 'image';
+            // 如果没卡片（极少数情况），补一张“已上传”的
+            setJobs((prev) => [...prev, { id, kind, name: f.name, status: 'uploaded', local: { file: f } }]);
+            job = { id, kind, name: f.name, status: 'uploaded', local: { file: f } } as any;
           }
   
-          // 额外守卫（类型收窄，理论上不会触发）
-          if (!ensuredId || !ensuredKind) {
-            // 可选：记录一次异常
-            // console.warn('Failed to ensure job id/kind for file', f.name);
-            continue;
-          }
-  
-          // 用已确保的 id/kind 分流任务，避免直接访问可能为 undefined 的 job
-          if (ensuredKind === 'image') {
-            imageTasks.push({ id: ensuredId, name: f.name, file: f });
-          } else {
-            pdfTasks.push({ id: ensuredId, name: f.name, file: f });
-          }
+          if (job.kind === 'image') imageTasks.push({ id: job.id, name: f.name, file: f });
+          else pdfTasks.push({ id: job.id, name: f.name, file: f });
         }
       } else if (imageUrl.trim()) {
         const id = (crypto as any)?.randomUUID?.() || Math.random().toString(36).slice(2);
@@ -684,17 +655,21 @@ export default function Page() {
         return;
       }
   
+      
+  
       // —— 图片：并发处理（不新增卡片，只更新现有卡片状态） ——
       await mapLimit(imageTasks, IMG_CONCURRENCY, async (t) => {
         setJobs((prev) => prev.map((j) => (j.id === t.id ? { ...j, status: 'queued' } : j)));
   
-        const inputImg = t.src ? t.src : await compressDataUrl(await toDataURL(t.file!), 2000, 0.9);
+        const inputImg = t.src
+          ? t.src
+          : await compressDataUrl(await toDataURL(t.file!), 2000, 0.9);
   
-        const jobId = await submitRunPod(
-          inputImg,
-          { translator: model, target_lang: language, device: 'cuda', compute_type: 'float16' },
-          verticalMode
-        );
+          const jobId = await submitRunPod(
+            inputImg,
+            { translator: model, target_lang: language, device: 'cuda', compute_type: 'float16' },
+            verticalMode,
+          );
   
         setJobs((prev) => prev.map((j) => (j.id === t.id ? { ...j, status: 'processing' } : j)));
         const out = await waitForJob(jobId);
@@ -708,10 +683,11 @@ export default function Page() {
           if (r.ok) {
             const q = await r.json();
             setQuota(q); // 同步 UI 额度
+          } else {
+            // 理论上不会到这里（前面已校验），容错即可
+            // 也可以 setErr('Quota consume failed after success.');
           }
-        } catch {
-          /* 忽略网络抖动 */
-        }
+        } catch { /* 忽略网络抖动 */ }
         refreshWallet();
         const full = 'data:image/png;base64,' + out.image_b64;
         const thumb = await makeThumbnail(full, 320, 320, 0.86);
@@ -742,11 +718,11 @@ export default function Page() {
             { translator: model, target_lang: language, device: 'cuda', compute_type: 'float16' },
             verticalMode
           );
+          
   
           setJobs((prev) => prev.map((j) => (j.id === t.id ? { ...j, status: 'processing' } : j)));
           const out = await waitForJob(jobId);
           const pageImg = 'data:image/png;base64,' + out.image_b64;
-  
           // ✅ 每页成功后扣 1
           try {
             const r = await fetch('/api/quota/consume', {
@@ -759,9 +735,7 @@ export default function Page() {
               setQuota(q);
             }
           } catch {}
-  
           refreshWallet();
-  
           if (idx === 0) {
             const thumb = await makeThumbnail(pageImg, 320, 320, 0.86);
             setJobs((prev) => prev.map((j) => (j.id === t.id ? { ...j, thumb } : j)));
@@ -793,7 +767,6 @@ export default function Page() {
       setLoading(false);
     }
   };
-  
   
 
   return (
