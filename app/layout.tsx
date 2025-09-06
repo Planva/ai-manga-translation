@@ -2,11 +2,9 @@
 import './globals.css'
 import type { Metadata, Viewport } from 'next'
 import { Manrope } from 'next/font/google'
-
-import { SWRConfig } from 'swr'
 import Image from 'next/image'
-export const runtime = 'edge';
 
+export const runtime = 'edge';
 
 export const metadata: Metadata = {
   title: 'Next.js SaaS Starter',
@@ -24,25 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
       suppressHydrationWarning
     >
-      {/* 注意：去掉原来的 body 灰底，换成 relative，给背景让路 */}
       <body className="relative min-h-[100dvh] antialiased overflow-y-scroll">
-        {/* 全局背景层（所有页面共用） */}
         <div className="pointer-events-none fixed inset-0 -z-10">
-          <Image
-            src="/branding/hero-bg.png"   // ← 若你是 .png 放这张；若是 .jpg 改扩展名
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
+          <Image src="/branding/hero-bg.png" alt="" fill priority sizes="100vw" className="object-cover" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(124,58,237,.45),transparent_40%),rgba(2,6,23,.65)]" />
         </div>
-
-        <SWRConfig value={{}}>
-
-          {children}
-        </SWRConfig>
+        {children}
       </body>
     </html>
   )
