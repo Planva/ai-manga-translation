@@ -6,7 +6,7 @@ import { getUser } from '@/lib/db/queries';
 
 // 若你在 lockfile 中的类型只接受 '2025-04-30.basil'，下面这一行是 OK 的；
 // 如果依然出现 apiVersion 字面量不匹配的报错，可改成：new Stripe(process.env.STRIPE_SECRET_KEY!)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const ENTITLING_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']); // 这些才算“当前可用订阅”
 
