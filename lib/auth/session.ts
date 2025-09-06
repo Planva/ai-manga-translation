@@ -1,67 +1,49 @@
-import { compare, hash } from 'bcryptjs';
-import { SignJWT, jwtVerify } from 'jose';
+// lib/auth/session.server.ts
+import 'server-only';
 import { cookies } from 'next/headers';
-import { NewUser } from '@/lib/db/schema';
+import { hash as bcryptHash, compare as bcryptCompare } from 'bcryptjs';
+import { signToken, verifyToken, type SessionPayload, type UserClaims } from './jwt';
 
-const key = new TextEncoder().encode(process.env.AUTH_SECRET);
-const SALT_ROUNDS = 10;
-export interface SessionData {
-  user: { id: string };
-  expires: string;
-  stripeRole?: "free" | "paid";    // ← 新增
-}
-export async function hashPassword(password: string) {
-  return hash(password, SALT_ROUNDS);
-}
+const SESSION_COOKIE = 'session';
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
-export async function comparePasswords(
-  plainTextPassword: string,
-  hashedPassword: string
-) {
-  return compare(plainTextPassword, hashedPassword);
+/** 密码哈希（服务端/Edge 可用） */
+export async function hashPassword(plain: string) {
+  // saltRounds 10~12 皆可；12 更安全但更慢
+  return bcryptHash(plain, 10);
 }
 
-type SessionData = {
-  user: { id: number };
-  expires: string;
-};
-
-export async function signToken(payload: SessionData) {
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('1 day from now')
-    .sign(key);
+/** 密码校验 */
+export async function verifyPassword(plain: string, hashed: string) {
+  return bcryptCompare(plain, hashed);
 }
 
-export async function verifyToken(input: string) {
-  const { payload } = await jwtVerify(input, key, {
-    algorithms: ['HS256'],
-  });
-  return payload as SessionData;
+/** 读取并校验会话（失败返回 null） */
+export async function getSession(): Promise<UserClaims | null> {
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const { claims } = await verifyToken(token);
+    return claims;
+  } catch {
+    return null;
+  }
 }
 
-export async function getSession() {
-  const session = (await cookies()).get('session')?.value;
-  if (!session) return null;
-  return await verifyToken(session);
-}
-
-export async function setSession(
-  user: NewUser,
-  stripeRole: "free" | "paid" = "free"
-  ) {
-  const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const session: SessionData = {
-    user: { id: user.id! },
-    expires: expiresInOneDay.toISOString(),
-    stripeRole,  
-  };
-  const encryptedSession = await signToken(session);
-  (await cookies()).set('session', encryptedSession, {
-    expires: expiresInOneDay,
+/** 设置会话 Cookie（默认 1 天） */
+export async function setSession(payload: SessionPayload, opts?: { expires?: Date }) {
+  const exp = opts?.expires ?? new Date(Date.now() + ONE_DAY);
+  const token = await signToken(payload, exp);
+  cookies().set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
+    path: '/',
+    expires: exp,
   });
+}
+
+/** 清理会话 */
+export function clearSession() {
+  cookies().delete(SESSION_COOKIE);
 }
