@@ -1,17 +1,9 @@
-// app/(dashboard)/layout.tsx
-'use client'
-export const runtime = 'edge';
-
-import SiteHeader from '@/components/site-header';
-import SiteFooter from "@/components/SiteFooter";
-import { SWRConfig } from 'swr';
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <SWRConfig value={{}}>
-      <SiteHeader />
-      {children}
-      <SiteFooter />
-    </SWRConfig>
-  );
+// 片段：app/(dashboard)/layout.tsx
+let user = null, team = null;
+try {
+  user = await getUser();
+  team = user ? await getTeamForUser(user.id) : null;
+} catch (err) {
+  console.error('Dashboard layout bootstrap failed on edge:', err);
+  // 不阻断渲染，给到安全的空态
 }
