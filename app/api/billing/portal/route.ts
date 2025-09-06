@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' });
 
 // 与 subscription 接口一致的解析，确保两边拿到同一个 Customer
 async function resolveCustomerId(user: { id: number | string; email?: string | null; name?: string | null }) {
