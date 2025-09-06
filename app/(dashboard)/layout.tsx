@@ -1,41 +1,29 @@
-// app/(dashboard)/layout.tsx
+import { SWRConfig } from 'swr'
+import SiteHeader from '@/components/site-header'
+import SiteFooter from '@/components/SiteFooter'
+
 export const runtime = 'edge';
 
-import SiteHeader from '@/components/site-header';
-import SiteFooter from '@/components/SiteFooter';
-import { SWRConfig } from 'swr';
-import { getUser, getTeamForUser } from '@/lib/db/queries';
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  let fallback: Record<string, unknown> = {}
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // ✅ 关键：不要把 Promise 直接传给 SWRConfig
-  let user: any = null;
-  let team: any = null;
-
-  try {
-    // 并发取数，兼容 edge
-    [user, team] = await Promise.all([getUser(), getTeamForUser()]);
-  } catch {
-    // 兜底：失败就给 null，避免渲染阶段抛错
-    user = null;
-    team = null;
+  // 只有在必需的 env 都存在时才去触发服务端取数
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const { getUser, getTeamForUser } = await import('@/lib/db/queries')
+      const [u, t] = await Promise.allSettled([getUser(), getTeamForUser()])
+      fallback['/api/user'] = u.status === 'fulfilled' ? u.value : null
+      fallback['/api/team'] = t.status === 'fulfilled' ? t.value : null
+    } catch {
+      // 忽略，保持空 fallback，前端自己拉
+    }
   }
 
   return (
-    <SWRConfig
-      value={{
-        fallback: {
-          '/api/user': user,
-          '/api/team': team,
-        },
-      }}
-    >
+    <SWRConfig value={{ fallback }}>
       <SiteHeader />
       {children}
       <SiteFooter />
     </SWRConfig>
-  );
+  )
 }
