@@ -3,13 +3,18 @@ import { getAllPosts, getPost } from '@/lib/blog';
 
 export const dynamic = 'force-static';
 
-export async function generateStaticParams() {
+export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   const posts = await getAllPosts();
   return posts.map((p) => ({ slug: p.slug }));
 }
 
-export default async function PostPage({ params }: { params: { slug: string } }) {
-  const { meta, html } = await getPost(params.slug);
+export default async function PostPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params; // ✅ Next 15 + PPR 要求 await
+  const { meta, html } = await getPost(slug);
 
   return (
     <main className="relative mx-auto w-full max-w-3xl px-6 pt-12 pb-24 text-white">
@@ -34,7 +39,6 @@ export default async function PostPage({ params }: { params: { slug: string } })
         )}
       </header>
 
-      {/* 正文卡片 */}
       <article className="prose prose-invert max-w-none rounded-2xl bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur">
         <div dangerouslySetInnerHTML={{ __html: html }} />
       </article>
